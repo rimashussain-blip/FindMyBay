@@ -50,9 +50,13 @@ class FmbFcmService : FirebaseMessagingService() {
                 val title = message.notification?.title ?: "Time to leave for your wash"
                 val body = message.notification?.body ?: "Your booking is approaching"
                 showLeaveNowNotification(title, body, bookingId, vendorId, etaMin)
-                // FCM made it through, so we don't need the WorkManager safety
-                // net to also fire a local notification at slot − 5 min.
-                bookingId?.let { AlertSafetyNet.cancel(applicationContext, it) }
+                // FCM made it through. Tear down both alert helpers so we
+                // don't keep watching traffic or fire a duplicate local
+                // notification at slot − 5 min.
+                bookingId?.let {
+                    AlertWindow.cancel(applicationContext, it)
+                    AlertSafetyNet.cancel(applicationContext, it)
+                }
             }
             "wash_complete" -> {
                 val bookingId = data["bookingId"] ?: return
@@ -60,7 +64,8 @@ class FmbFcmService : FirebaseMessagingService() {
                 val body = message.notification?.body
                     ?: "Your wash is done. Pick up whenever you're ready."
                 showWashCompleteNotification(title, body, bookingId)
-                // The wash is over — the safety net is moot.
+                // Wash is done — both alert helpers are moot.
+                AlertWindow.cancel(applicationContext, bookingId)
                 AlertSafetyNet.cancel(applicationContext, bookingId)
             }
         }

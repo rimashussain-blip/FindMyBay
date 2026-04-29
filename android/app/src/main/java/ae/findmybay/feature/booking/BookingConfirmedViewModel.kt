@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import ae.findmybay.data.repo.BookingRepository
 import ae.findmybay.domain.model.Booking
 import ae.findmybay.service.AlertSafetyNet
+import ae.findmybay.service.AlertWindow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,9 +45,14 @@ class BookingConfirmedViewModel @Inject constructor(
                     val match = list.firstOrNull { it.id == bookingId }
                     if (match != null) {
                         _state.update { it.copy(loading = false, booking = match) }
-                        // Schedule the FCM-throttle safety net once we know the
-                        // slot start time. Idempotent: replaces any prior
-                        // scheduling for this booking.
+                        // Two layers of defence against UAE OEMs killing FCM:
+                        //  1) Foreground worker that opens at T-90min and
+                        //     keeps location flowing during the alert window.
+                        //  2) One-shot WorkManager job at T-5min that fires
+                        //     a local notification if FCM still didn't deliver.
+                        // Both helpers are idempotent (REPLACE policy) so
+                        // re-entering this screen doesn't dupe anything.
+                        AlertWindow.schedule(context, match.id, match.slotStart)
                         AlertSafetyNet.schedule(context, match.id, match.slotStart)
                     } else {
                         _state.update { it.copy(loading = false, error = "Booking not found") }

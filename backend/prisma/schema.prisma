@@ -305,13 +305,18 @@ model Review {
 // -------------------------------------------------------------
 
 model Alert {
-  id        String      @id @default(cuid())
-  bookingId String      @map("booking_id")
-  dueAt     DateTime    @map("due_at")
-  etaMin    Int         @default(0) @map("eta_min")
-  status    AlertStatus @default(scheduled)
-  createdAt DateTime    @default(now()) @map("created_at")
-  updatedAt DateTime    @updatedAt @map("updated_at")
+  id         String      @id @default(cuid())
+  bookingId  String      @map("booking_id")
+  dueAt      DateTime    @map("due_at")
+  etaMin     Int         @default(0) @map("eta_min")
+  status     AlertStatus @default(scheduled)
+  // Number of times the worker has actually hit Google Distance Matrix
+  // for this alert. Cache hits and geofence-suppressed ticks don't count.
+  // Hard-capped at 12 per spec §10.4 — beyond that the worker falls back
+  // to slot_start − 25 min instead of probing.
+  probeCount Int         @default(0) @map("probe_count")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
 
   booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
