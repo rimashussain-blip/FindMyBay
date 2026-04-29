@@ -1,0 +1,311 @@
+<h2 class="sr-only">Find My Bay customer Android wireframes restyled in an aqua/teal water-fresh palette: OTP sign-in, nearby map, vendor detail, slot picker, booking confirmation, leave-now alert, my bookings.</h2>
+
+<style>
+  .fmb-canvas { background: #C8EAE2; border-radius: var(--border-radius-lg); padding: 28px 16px; }
+  .fmb-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+  .fmb-screen { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .fmb-label { font-size: 13px; color: #0E6E5C; text-align: center; font-weight: 500; }
+  .fmb-cap { font-size: 11px; color: #1F4D44; text-align: center; max-width: 280px; line-height: 1.5; opacity: 0.85; }
+  .fmb-num { display: inline-block; min-width: 18px; height: 18px; line-height: 18px; border-radius: 9px; background: #0F9E88; color: white; text-align: center; font-size: 11px; font-weight: 500; margin-right: 6px; }
+  .fmb-palette { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+  .fmb-swatch { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10px; color: #1F4D44; }
+  .fmb-chip { width: 36px; height: 36px; border-radius: 8px; border: 0.5px solid rgba(14,110,92,0.2); }
+</style>
+
+<div class="fmb-canvas">
+
+  <div class="fmb-palette">
+    <div class="fmb-swatch"><div class="fmb-chip" style="background:#0F9E88"></div>Primary</div>
+    <div class="fmb-swatch"><div class="fmb-chip" style="background:#0E6E5C"></div>Deep teal</div>
+    <div class="fmb-swatch"><div class="fmb-chip" style="background:#E1F5EE"></div>Surface</div>
+    <div class="fmb-swatch"><div class="fmb-chip" style="background:#C8EAE2"></div>Background</div>
+    <div class="fmb-swatch"><div class="fmb-chip" style="background:#F5D89E"></div>Amber</div>
+    <div class="fmb-swatch"><div class="fmb-chip" style="background:#E97171"></div>Coral</div>
+    <div class="fmb-swatch"><div class="fmb-chip" style="background:#FFFFFF;border:0.5px solid #ccc"></div>White</div>
+  </div>
+
+  <div class="fmb-grid">
+
+    <!-- 1. Phone OTP -->
+    <div class="fmb-screen">
+      <svg viewBox="0 0 160 320" width="160" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>Phone OTP screen</title>
+        <rect x="2" y="2" width="156" height="316" rx="20" fill="#FFFFFF" stroke="#1F2937" stroke-width="3"/>
+        <rect x="64" y="6" width="32" height="6" rx="3" fill="#1F2937"/>
+        <text x="80" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#888">9:41</text>
+        <circle cx="80" cy="90" r="22" fill="#E1F5EE"/>
+        <path d="M 72 86 Q 80 76 88 86 Q 92 92 88 98 Q 80 104 72 98 Q 68 92 72 86 Z" fill="#0F9E88"/>
+        <circle cx="76" cy="90" r="2" fill="white" opacity="0.8"/>
+        <text x="80" y="138" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="#0E6E5C">Find My Bay</text>
+        <text x="80" y="154" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#1F4D44">Book a free wash bay in seconds</text>
+        <text x="80" y="162" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#1F4D44">— across the UAE</text>
+        <rect x="20" y="186" width="120" height="22" rx="6" fill="#E1F5EE" stroke="#0F9E88" stroke-width="0.5"/>
+        <text x="28" y="200" font-family="Arial,sans-serif" font-size="6" fill="#0E6E5C">Mobile number</text>
+        <rect x="20" y="218" width="120" height="22" rx="11" fill="#0F9E88"/>
+        <text x="80" y="232" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="500" fill="#FFFFFF">Send OTP</text>
+        <text x="80" y="258" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#6B7280">By continuing you agree to the</text>
+        <text x="80" y="265" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#6B7280">Terms &amp; Privacy Policy</text>
+      </svg>
+      <div class="fmb-label"><span class="fmb-num">1</span>Phone OTP</div>
+      <div class="fmb-cap">Aqua water-drop logo over mint surfaces. Send OTP triggers backend.</div>
+    </div>
+
+    <!-- 2. OTP Verify -->
+    <div class="fmb-screen">
+      <svg viewBox="0 0 160 320" width="160" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>OTP Verify screen</title>
+        <rect x="2" y="2" width="156" height="316" rx="20" fill="#FFFFFF" stroke="#1F2937" stroke-width="3"/>
+        <rect x="64" y="6" width="32" height="6" rx="3" fill="#1F2937"/>
+        <text x="80" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#888">9:42</text>
+        <text x="20" y="50" font-family="Arial,sans-serif" font-size="10" fill="#0E6E5C">←</text>
+        <text x="36" y="50" font-family="Arial,sans-serif" font-size="8" font-weight="500" fill="#0E6E5C">Verify your number</text>
+        <line x1="20" y1="58" x2="140" y2="58" stroke="#E1F5EE"/>
+        <text x="20" y="80" font-family="Arial,sans-serif" font-size="6" fill="#1F4D44">Enter the 6-digit code we sent to</text>
+        <text x="20" y="92" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="#0F9E88">+971 50 123 4567</text>
+        <rect x="20" y="110" width="120" height="22" rx="6" fill="#E1F5EE" stroke="#0F9E88" stroke-width="1"/>
+        <text x="28" y="122" font-family="Arial,sans-serif" font-size="5" fill="#0E6E5C">Verification code</text>
+        <text x="80" y="129" text-anchor="middle" font-family="Arial,sans-serif" font-size="9" letter-spacing="2" fill="#0E6E5C" font-weight="500">3 0 7 5 2 1</text>
+        <rect x="20" y="148" width="120" height="22" rx="11" fill="#0F9E88"/>
+        <text x="80" y="162" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="500" fill="#FFFFFF">Verify &amp; Continue</text>
+        <text x="80" y="184" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#0F9E88">Resend code</text>
+      </svg>
+      <div class="fmb-label"><span class="fmb-num">2</span>OTP Verify</div>
+      <div class="fmb-cap">Phone in deep teal as a confirmation accent. Code field on light teal.</div>
+    </div>
+
+    <!-- 3. Nearby Map -->
+    <div class="fmb-screen">
+      <svg viewBox="0 0 160 320" width="160" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>Nearby Map screen</title>
+        <rect x="2" y="2" width="156" height="316" rx="20" fill="#FFFFFF" stroke="#1F2937" stroke-width="3"/>
+        <rect x="64" y="6" width="32" height="6" rx="3" fill="#1F2937"/>
+        <text x="80" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#888">9:43</text>
+        <text x="14" y="50" font-family="Arial,sans-serif" font-size="8" font-weight="500" fill="#0E6E5C">Nearby car washes</text>
+        <circle cx="138" cy="46" r="9" fill="#E1F5EE"/>
+        <text x="138" y="49" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" fill="#0F9E88">↻</text>
+        <rect x="2" y="58" width="156" height="200" fill="#C8EAE2"/>
+        <path d="M 10 120 Q 80 100 150 130 L 150 200 L 10 200 Z" fill="#F5D89E" opacity="0.4"/>
+        <path d="M 30 60 L 50 100 L 30 140 L 10 100 Z" fill="#0F9E88" opacity="0.3"/>
+        <line x1="2" y1="170" x2="158" y2="170" stroke="#0E6E5C" stroke-width="0.4" opacity="0.4"/>
+        <line x1="80" y1="58" x2="80" y2="258" stroke="#0E6E5C" stroke-width="0.4" opacity="0.4"/>
+        <circle cx="60" cy="130" r="7" fill="#0F9E88"/>
+        <text x="60" y="133" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="white" font-weight="700">2</text>
+        <circle cx="100" cy="155" r="7" fill="#0F9E88"/>
+        <text x="100" y="158" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="white" font-weight="700">4</text>
+        <circle cx="115" cy="195" r="7" fill="#0F9E88"/>
+        <text x="115" y="198" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="white" font-weight="700">1</text>
+        <rect x="8" y="262" width="80" height="48" rx="8" fill="white" stroke="#E1F5EE"/>
+        <text x="14" y="274" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="#0E6E5C">Polaris Auto Spa</text>
+        <text x="14" y="282" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Dubai · 1.4 km</text>
+        <rect x="14" y="288" width="22" height="11" rx="3" fill="#E1F5EE"/>
+        <text x="25" y="296" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" font-weight="700" fill="#0F9E88">2 free</text>
+        <text x="40" y="295" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">AED 35+</text>
+        <rect x="92" y="262" width="60" height="48" rx="8" fill="white" stroke="#E1F5EE"/>
+        <text x="98" y="274" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="#0E6E5C">Al Quoz</text>
+        <text x="98" y="282" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Dubai · 6.3 km</text>
+        <rect x="98" y="288" width="22" height="11" rx="3" fill="#E1F5EE"/>
+        <text x="109" y="296" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" font-weight="700" fill="#0F9E88">4 free</text>
+      </svg>
+      <div class="fmb-label"><span class="fmb-num">3</span>Nearby Map</div>
+      <div class="fmb-cap">Aqua tinted map theme. Teal pins with white free-bay counts. Soft pastel cards on bottom strip.</div>
+    </div>
+
+    <!-- 4. Vendor Detail -->
+    <div class="fmb-screen">
+      <svg viewBox="0 0 160 320" width="160" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>Vendor Detail screen</title>
+        <rect x="2" y="2" width="156" height="316" rx="20" fill="#FFFFFF" stroke="#1F2937" stroke-width="3"/>
+        <rect x="64" y="6" width="32" height="6" rx="3" fill="#1F2937"/>
+        <text x="80" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#888">9:44</text>
+        <text x="14" y="50" font-family="Arial,sans-serif" font-size="6" fill="#0E6E5C">←</text>
+        <text x="22" y="50" font-family="Arial,sans-serif" font-size="8" font-weight="500" fill="#0E6E5C">Polaris Auto Spa</text>
+        <line x1="2" y1="58" x2="158" y2="58" stroke="#E1F5EE"/>
+        <rect x="14" y="68" width="132" height="40" rx="8" fill="#E1F5EE"/>
+        <text x="20" y="82" font-family="Arial,sans-serif" font-size="9" font-weight="700" fill="#0E6E5C">Polaris Auto Spa</text>
+        <text x="20" y="91" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Business Bay · Dubai</text>
+        <text x="20" y="102" font-family="Arial,sans-serif" font-size="5" fill="#F5B400">★</text>
+        <text x="26" y="102" font-family="Arial,sans-serif" font-size="5" fill="#0E6E5C" font-weight="500">4.7  ·  from AED 35</text>
+        <rect x="14" y="116" width="132" height="62" rx="8" fill="white" stroke="#E1F5EE"/>
+        <text x="20" y="128" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="#0E6E5C">Bay status</text>
+        <rect x="20" y="134" width="22" height="11" rx="3" fill="#E1F5EE"/>
+        <text x="31" y="142" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" font-weight="700" fill="#0F9E88">2 free</text>
+        <rect x="46" y="134" width="22" height="11" rx="3" fill="#FCE5E5"/>
+        <text x="57" y="142" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" font-weight="700" fill="#E97171">2 busy</text>
+        <line x1="20" y1="150" x2="140" y2="150" stroke="#E1F5EE" stroke-width="0.5"/>
+        <text x="20" y="159" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Bay 1 · Sedan</text>
+        <text x="140" y="159" text-anchor="end" font-family="Arial,sans-serif" font-size="5" font-weight="500" fill="#0F9E88">free</text>
+        <text x="20" y="168" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Bay 2 · Sedan</text>
+        <text x="140" y="168" text-anchor="end" font-family="Arial,sans-serif" font-size="5" font-weight="500" fill="#E97171">busy</text>
+        <text x="14" y="194" font-family="Arial,sans-serif" font-size="7" font-weight="500" fill="#0E6E5C">Services</text>
+        <rect x="14" y="200" width="132" height="22" rx="6" fill="white" stroke="#E1F5EE"/>
+        <text x="20" y="211" font-family="Arial,sans-serif" font-size="5.5" font-weight="500" fill="#0E6E5C">Quick Exterior Wash</text>
+        <text x="20" y="218" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">20 min · VAT incl.</text>
+        <text x="140" y="214" text-anchor="end" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#0F9E88">AED 35</text>
+        <rect x="14" y="226" width="132" height="22" rx="6" fill="white" stroke="#E1F5EE"/>
+        <text x="20" y="237" font-family="Arial,sans-serif" font-size="5.5" font-weight="500" fill="#0E6E5C">Premium Wash &amp; Wax</text>
+        <text x="20" y="244" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">45 min · VAT incl.</text>
+        <text x="140" y="240" text-anchor="end" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#0F9E88">AED 89</text>
+        <rect x="14" y="280" width="132" height="22" rx="11" fill="#0F9E88"/>
+        <text x="80" y="294" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="500" fill="white">Book a wash</text>
+      </svg>
+      <div class="fmb-label"><span class="fmb-num">4</span>Vendor Detail</div>
+      <div class="fmb-cap">Hero card on light teal. Free bay chips in mint, busy chips in soft coral. Sticky teal CTA.</div>
+    </div>
+
+    <!-- 5. Slot Picker -->
+    <div class="fmb-screen">
+      <svg viewBox="0 0 160 320" width="160" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>Slot Picker screen</title>
+        <rect x="2" y="2" width="156" height="316" rx="20" fill="#FFFFFF" stroke="#1F2937" stroke-width="3"/>
+        <rect x="64" y="6" width="32" height="6" rx="3" fill="#1F2937"/>
+        <text x="80" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#888">9:45</text>
+        <text x="14" y="50" font-family="Arial,sans-serif" font-size="6" fill="#0E6E5C">←</text>
+        <text x="22" y="50" font-family="Arial,sans-serif" font-size="8" font-weight="500" fill="#0E6E5C">Pick a time slot</text>
+        <line x1="2" y1="58" x2="158" y2="58" stroke="#E1F5EE"/>
+        <text x="14" y="72" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="#0E6E5C">Service</text>
+        <rect x="14" y="78" width="50" height="20" rx="6" fill="#E1F5EE" stroke="#0F9E88" stroke-width="1.2"/>
+        <text x="39" y="86" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" font-weight="700" fill="#0E6E5C">Quick Wash</text>
+        <text x="39" y="93" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.5" fill="#0F9E88">20 min · 35</text>
+        <rect x="68" y="78" width="50" height="20" rx="6" fill="white" stroke="#C8EAE2"/>
+        <text x="93" y="86" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" font-weight="500" fill="#1F4D44">Premium</text>
+        <text x="93" y="93" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.5" fill="#6B7280">45 min · 89</text>
+        <text x="14" y="114" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="#0E6E5C">Date</text>
+        <rect x="14" y="120" width="36" height="20" rx="6" fill="#0F9E88"/>
+        <text x="32" y="128" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" font-weight="700" fill="white">Tomorrow</text>
+        <text x="32" y="135" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.5" fill="#E1F5EE">28 Apr</text>
+        <rect x="54" y="120" width="36" height="20" rx="6" fill="white" stroke="#C8EAE2"/>
+        <text x="72" y="128" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#0E6E5C">Wed</text>
+        <text x="72" y="135" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.5" fill="#1F4D44">29 Apr</text>
+        <rect x="94" y="120" width="36" height="20" rx="6" fill="white" stroke="#C8EAE2"/>
+        <text x="112" y="128" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#0E6E5C">Thu</text>
+        <text x="112" y="135" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.5" fill="#1F4D44">30 Apr</text>
+        <text x="14" y="156" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="#0E6E5C">Time slots</text>
+        <g font-family="Arial,sans-serif" font-size="5" fill="#0E6E5C">
+          <rect x="14" y="162" width="40" height="14" rx="4" fill="#E1F5EE" stroke="#0F9E88" stroke-width="0.5"/><text x="34" y="172" text-anchor="middle">08:00</text>
+          <rect x="58" y="162" width="40" height="14" rx="4" fill="#E1F5EE" stroke="#0F9E88" stroke-width="0.5"/><text x="78" y="172" text-anchor="middle">08:30</text>
+          <rect x="102" y="162" width="40" height="14" rx="4" fill="#E1F5EE" stroke="#0F9E88" stroke-width="0.5"/><text x="122" y="172" text-anchor="middle">09:00</text>
+          <rect x="14" y="180" width="40" height="14" rx="4" fill="#E1F5EE" stroke="#0F9E88" stroke-width="0.5"/><text x="34" y="190" text-anchor="middle">09:30</text>
+          <rect x="58" y="180" width="40" height="14" rx="4" fill="#0F9E88" stroke="#0F9E88" stroke-width="2"/><text x="78" y="190" text-anchor="middle" fill="white" font-weight="700">10:00</text>
+          <rect x="102" y="180" width="40" height="14" rx="4" fill="#E1F5EE" stroke="#0F9E88" stroke-width="0.5"/><text x="122" y="190" text-anchor="middle">10:30</text>
+        </g>
+        <g font-family="Arial,sans-serif" font-size="5" fill="#9CA3AF">
+          <rect x="14" y="198" width="40" height="14" rx="4" fill="#F4F4F4"/><text x="34" y="208" text-anchor="middle" text-decoration="line-through">11:00</text>
+          <rect x="58" y="198" width="40" height="14" rx="4" fill="#F4F4F4"/><text x="78" y="208" text-anchor="middle" text-decoration="line-through">11:30</text>
+          <rect x="102" y="198" width="40" height="14" rx="4" fill="#F4F4F4"/><text x="122" y="208" text-anchor="middle" text-decoration="line-through">12:00</text>
+        </g>
+        <rect x="14" y="280" width="132" height="22" rx="11" fill="#0F9E88"/>
+        <text x="80" y="294" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="500" fill="white">Confirm booking · AED 35</text>
+      </svg>
+      <div class="fmb-label"><span class="fmb-num">5</span>Slot Picker</div>
+      <div class="fmb-cap">Mint slot tiles for available, solid teal for selected, soft grey strikethrough for past.</div>
+    </div>
+
+    <!-- 6. Booking Confirmed -->
+    <div class="fmb-screen">
+      <svg viewBox="0 0 160 320" width="160" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>Booking Confirmed screen</title>
+        <rect x="2" y="2" width="156" height="316" rx="20" fill="#FFFFFF" stroke="#1F2937" stroke-width="3"/>
+        <rect x="64" y="6" width="32" height="6" rx="3" fill="#1F2937"/>
+        <text x="80" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#888">9:46</text>
+        <circle cx="80" cy="68" r="22" fill="#E1F5EE"/>
+        <circle cx="80" cy="68" r="14" fill="#0F9E88"/>
+        <path d="M 72 68 L 78 76 L 90 60" stroke="white" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <text x="80" y="106" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#0E6E5C">Booking confirmed</text>
+        <text x="80" y="120" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">We'll send you a smart-alert when</text>
+        <text x="80" y="127" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">it's time to leave so you arrive</text>
+        <text x="80" y="134" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">on time, even in traffic.</text>
+        <rect x="14" y="148" width="132" height="98" rx="8" fill="white" stroke="#E1F5EE"/>
+        <text x="20" y="160" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#0E6E5C">Polaris Auto Spa</text>
+        <text x="20" y="168" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Business Bay, Dubai</text>
+        <line x1="20" y1="174" x2="140" y2="174" stroke="#E1F5EE"/>
+        <text x="20" y="184" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Service</text>
+        <text x="140" y="184" text-anchor="end" font-family="Arial,sans-serif" font-size="5" font-weight="500" fill="#0E6E5C">Quick Exterior Wash</text>
+        <text x="20" y="194" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Duration</text>
+        <text x="140" y="194" text-anchor="end" font-family="Arial,sans-serif" font-size="5" font-weight="500" fill="#0E6E5C">20 min</text>
+        <text x="20" y="204" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Bay</text>
+        <text x="140" y="204" text-anchor="end" font-family="Arial,sans-serif" font-size="5" font-weight="500" fill="#0E6E5C">Bay 1</text>
+        <text x="20" y="214" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Time</text>
+        <text x="140" y="214" text-anchor="end" font-family="Arial,sans-serif" font-size="5" font-weight="500" fill="#0E6E5C">Tue 28 Apr · 10:00</text>
+        <line x1="20" y1="222" x2="140" y2="222" stroke="#E1F5EE"/>
+        <text x="20" y="234" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="#0E6E5C">Total</text>
+        <text x="140" y="234" text-anchor="end" font-family="Arial,sans-serif" font-size="8" font-weight="700" fill="#0F9E88">AED 35</text>
+        <rect x="14" y="280" width="132" height="22" rx="11" fill="#0F9E88"/>
+        <text x="80" y="294" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="500" fill="white">Done</text>
+      </svg>
+      <div class="fmb-label"><span class="fmb-num">6</span>Booking Confirmed</div>
+      <div class="fmb-cap">Teal check on light mint halo. White receipt card with mint dividers.</div>
+    </div>
+
+    <!-- 7. Leave Now -->
+    <div class="fmb-screen">
+      <svg viewBox="0 0 160 320" width="160" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>Leave Now full-screen alert</title>
+        <defs>
+          <linearGradient id="aquabg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#0F9E88"/>
+            <stop offset="1" stop-color="#0E6E5C"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="156" height="316" rx="20" fill="url(#aquabg)" stroke="#1F2937" stroke-width="3"/>
+        <rect x="64" y="6" width="32" height="6" rx="3" fill="#1F2937"/>
+        <text x="80" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="white" opacity="0.6">9:50</text>
+        <circle cx="80" cy="76" r="24" fill="#F5D89E" opacity="0.25"/>
+        <circle cx="80" cy="76" r="16" fill="#F5D89E"/>
+        <path d="M 72 70 L 88 70 L 90 76 L 88 80 L 72 80 L 70 76 Z" fill="#0E6E5C"/>
+        <circle cx="74" cy="80" r="2" fill="#F5D89E"/>
+        <circle cx="86" cy="80" r="2" fill="#F5D89E"/>
+        <text x="80" y="124" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="white">Leave now</text>
+        <text x="80" y="138" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="white" opacity="0.85">for your wash at</text>
+        <text x="80" y="148" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="white" opacity="0.85">Polaris Auto Spa</text>
+        <rect x="14" y="170" width="132" height="44" rx="8" fill="white"/>
+        <text x="50" y="186" text-anchor="middle" font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="#0E6E5C">12</text>
+        <text x="64" y="186" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">min</text>
+        <text x="50" y="200" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Travel time</text>
+        <line x1="80" y1="178" x2="80" y2="206" stroke="#E1F5EE"/>
+        <text x="110" y="186" text-anchor="middle" font-family="Arial,sans-serif" font-size="11" font-weight="700" fill="#0E6E5C">10:00</text>
+        <text x="110" y="200" text-anchor="middle" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Slot time</text>
+        <rect x="14" y="232" width="132" height="22" rx="11" fill="#F5D89E"/>
+        <text x="80" y="246" text-anchor="middle" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#0E6E5C">I'm leaving now</text>
+        <rect x="14" y="262" width="132" height="20" rx="10" fill="none" stroke="white" stroke-width="0.5"/>
+        <text x="80" y="275" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="white">Snooze 5 min</text>
+      </svg>
+      <div class="fmb-label"><span class="fmb-num">7</span>Leave Now</div>
+      <div class="fmb-cap">Aqua gradient hero. Amber CTA pops against teal. White ETA card with mint divider.</div>
+    </div>
+
+    <!-- 8. My Bookings -->
+    <div class="fmb-screen">
+      <svg viewBox="0 0 160 320" width="160" height="320" xmlns="http://www.w3.org/2000/svg" role="img">
+        <title>My Bookings screen (planned)</title>
+        <rect x="2" y="2" width="156" height="316" rx="20" fill="#FFFFFF" stroke="#1F2937" stroke-width="3" stroke-dasharray="5 3"/>
+        <rect x="64" y="6" width="32" height="6" rx="3" fill="#1F2937"/>
+        <text x="80" y="28" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#888">9:55</text>
+        <text x="14" y="50" font-family="Arial,sans-serif" font-size="8" font-weight="500" fill="#0E6E5C">My bookings</text>
+        <line x1="2" y1="58" x2="158" y2="58" stroke="#E1F5EE"/>
+        <rect x="14" y="68" width="60" height="22" rx="11" fill="#0F9E88"/>
+        <text x="44" y="82" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="white">Upcoming</text>
+        <text x="98" y="82" text-anchor="middle" font-family="Arial,sans-serif" font-size="6" fill="#1F4D44">Past</text>
+        <rect x="14" y="100" width="132" height="64" rx="8" fill="white" stroke="#0F9E88" stroke-width="1"/>
+        <rect x="14" y="100" width="132" height="14" rx="8" fill="#E1F5EE"/>
+        <rect x="14" y="108" width="132" height="6" fill="#E1F5EE"/>
+        <text x="20" y="110" font-family="Arial,sans-serif" font-size="5" font-weight="500" fill="#0E6E5C">Tomorrow · 10:00</text>
+        <text x="140" y="110" text-anchor="end" font-family="Arial,sans-serif" font-size="5" fill="#0F9E88" font-weight="500">in 18h 14m</text>
+        <text x="20" y="124" font-family="Arial,sans-serif" font-size="7" font-weight="700" fill="#0E6E5C">Polaris Auto Spa</text>
+        <text x="20" y="132" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Quick Wash · Bay 1</text>
+        <text x="20" y="143" font-family="Arial,sans-serif" font-size="5" font-weight="700" fill="#0F9E88">AED 35</text>
+        <rect x="20" y="148" width="40" height="11" rx="3" fill="#0E6E5C"/>
+        <text x="40" y="156" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.5" fill="white">Show QR</text>
+        <rect x="64" y="148" width="36" height="11" rx="3" fill="white" stroke="#C8EAE2"/>
+        <text x="82" y="156" text-anchor="middle" font-family="Arial,sans-serif" font-size="4.5" fill="#1F4D44">Cancel</text>
+        <rect x="14" y="174" width="132" height="44" rx="8" fill="white" stroke="#E1F5EE"/>
+        <text x="20" y="186" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Sat 2 May · 14:30</text>
+        <text x="20" y="198" font-family="Arial,sans-serif" font-size="6" font-weight="500" fill="#0E6E5C">Marina Shine</text>
+        <text x="20" y="207" font-family="Arial,sans-serif" font-size="5" fill="#1F4D44">Standard Wash · Bay 2</text>
+        <text x="140" y="207" text-anchor="end" font-family="Arial,sans-serif" font-size="6" font-weight="700" fill="#0F9E88">AED 40</text>
+      </svg>
+      <div class="fmb-label"><span class="fmb-num">8</span>My Bookings <span style="color: #F5B400; font-size: 10px;">(planned)</span></div>
+      <div class="fmb-cap">Mint header strip on the active booking. Teal QR button. Time-until-slot countdown in primary teal.</div>
+    </div>
+
+  </div>
+</div>

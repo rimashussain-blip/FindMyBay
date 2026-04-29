@@ -1,0 +1,352 @@
+// Find My Bay — Prisma schema
+//
+// We do NOT model the PostGIS geometry column with a Prisma type because Prisma
+// doesn't natively support `geometry`. Instead we store geometry in a column
+// added by a SQL migration and access it via raw queries (Prisma.$queryRaw).
+//
+// The Prisma model carries plain `lat` and `lng` for round-tripping; the
+// PostGIS column is the source of truth for spatial queries.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// -------------------------------------------------------------
+// Users
+// -------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  phone        String?  @unique
+  email        String?  @unique
+  passwordHash String?  @map("password_hash")
+  fullName     String?  @map("full_name")
+  role         Role     @default(customer)
+  // Last-known device location, posted by the customer app while a booking
+  // window is approaching. Used by the smart-alert worker to compute ETA
+  // instead of falling back to a stub coordinate. Null until first report.
+  lastLat        Float?    @map("last_lat")
+  lastLng        Float?    @map("last_lng")
+  lastLocationAt DateTime? @map("last_location_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  refreshTokens RefreshToken[]
+  bookings      Booking[]
+  deviceTokens  DeviceToken[]
+  vendorMembers VendorMember[]
+
+  @@map("users")
+}
+
+enum Role {
+  customer
+  vendor_owner
+  vendor_manager
+  attendant
+  admin
+}
+
+// -------------------------------------------------------------
+// Auth
+// -------------------------------------------------------------
+
+model OtpChallenge {
+  id          String   @id @default(cuid())
+  phone       String
+  // Hash of the OTP (we never store the plain code).
+  codeHash    String   @map("code_hash")
+  attempts    Int      @default(0)
+  expiresAt   DateTime @map("expires_at")
+  consumedAt  DateTime? @map("consumed_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([phone, createdAt])
+  @@map("otp_challenges")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  // Hash of the refresh token; the plaintext only exists in the response once.
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// -------------------------------------------------------------
+// Vendors / Bays / Services
+// -------------------------------------------------------------
+
+model Vendor {
+  id              String       @id @default(cuid())
+  brandName       String       @map("brand_name")
+  tradeLicenseNo  String?      @map("trade_license_no")
+  city            String
+  emirate         Emirate
+  addressLine     String?      @map("address_line")
+  // Plain lat/lng kept on the row for the JSON response.
+  // The authoritative spatial column is `geom geometry(Point, 4326)`,
+  // added by a SQL migration. We update it via a trigger on insert/update.
+  lat             Float
+  lng             Float
+  // PostGIS spatial column — added by 20260426000000_init_postgis migration.
+  // Declared here as Unsupported so Prisma's migrate-dev drift check doesn't
+  // try to drop it. We never read/write this column from Prisma; the Nearby
+  // search uses raw SQL ($queryRaw) against the geom directly.
+  geom            Unsupported("geometry(Point, 4326)")?
+  logoUrl         String?      @map("logo_url")
+  status          VendorStatus @default(active)
+  ratingAvg       Float?       @map("rating_avg")
+  priceFromAed    Int?         @map("price_from_aed")
+  // Operating hours by weekday. Shape:
+  //   { "mon": { "open": "08:00", "close": "22:00" }, ..., "sun": null }
+  // null means closed for that day. Optional — vendors set this on Brand &
+  // Branch; if absent, customer detail screens fall back to "Hours not set".
+  hours           Json?        @map("hours")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  deletedAt       DateTime?    @map("deleted_at")
+
+  bays     Bay[]
+  services Service[]
+  bookings Booking[]
+  members  VendorMember[]
+
+  @@index([emirate, city])
+  @@map("vendors")
+}
+
+model VendorMember {
+  id        String           @id @default(cuid())
+  userId    String           @map("user_id")
+  vendorId  String           @map("vendor_id")
+  role      VendorMemberRole @default(owner)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, vendorId])
+  @@index([vendorId])
+  @@map("vendor_members")
+}
+
+enum VendorMemberRole {
+  owner
+  manager
+  attendant
+}
+
+enum Emirate {
+  AbuDhabi
+  Dubai
+  Sharjah
+  Ajman
+  UmmAlQuwain
+  RasAlKhaimah
+  Fujairah
+}
+
+enum VendorStatus {
+  pending
+  active
+  suspended
+}
+
+model Bay {
+  id        String     @id @default(cuid())
+  vendorId  String     @map("vendor_id")
+  name      String
+  bayType   BayType    @default(sedan) @map("bay_type")
+  status    BayStatus  @default(free)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+  deletedAt DateTime?  @map("deleted_at")
+
+  vendor   Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([vendorId])
+  @@map("bays")
+}
+
+enum BayType {
+  sedan
+  suv
+  bike
+}
+
+enum BayStatus {
+  free
+  busy
+  closed
+}
+
+model Service {
+  id            String   @id @default(cuid())
+  vendorId      String   @map("vendor_id")
+  name          String
+  durationMin   Int      @map("duration_min")
+  priceAed      Int      @map("price_aed")
+  vatInclusive  Boolean  @default(true) @map("vat_inclusive")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  vendor   Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  bookings Booking[]
+
+  @@index([vendorId])
+  @@map("services")
+}
+
+// -------------------------------------------------------------
+// Bookings (skeleton — full state machine in next milestone)
+// -------------------------------------------------------------
+
+model Booking {
+  id         String        @id @default(cuid())
+  customerId String        @map("customer_id")
+  vendorId   String        @map("vendor_id")
+  bayId      String        @map("bay_id")
+  serviceId  String        @map("service_id")
+  slotStart  DateTime      @map("slot_start")
+  slotEnd    DateTime      @map("slot_end")
+  status     BookingStatus @default(pending_payment)
+  totalAed   Int           @map("total_aed")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+
+  customer User    @relation(fields: [customerId], references: [id])
+  vendor   Vendor  @relation(fields: [vendorId], references: [id])
+  bay      Bay     @relation(fields: [bayId], references: [id])
+  service  Service @relation(fields: [serviceId], references: [id])
+  alerts   Alert[]
+  review   Review?
+  payments Payment[]
+
+  @@index([customerId])
+  @@index([vendorId, slotStart])
+  @@map("bookings")
+}
+
+// -------------------------------------------------------------
+// Payments
+// -------------------------------------------------------------
+//
+// One booking can have multiple Payment rows (e.g. a failed first attempt
+// followed by a successful second). Only one should ever be `succeeded`.
+// `processorRef` is our own opaque token used in hosted-page URLs and
+// webhooks; the processor's transaction id lands in `externalRef` once known.
+
+model Payment {
+  id            String        @id @default(cuid())
+  bookingId     String        @map("booking_id")
+  processor     String        // 'mock' | 'telr' | 'ni'
+  processorRef  String        @unique @map("processor_ref")
+  externalRef   String?       @map("external_ref")
+  amountAed     Int           @map("amount_aed")
+  status        PaymentStatus @default(pending)
+  hostedPageUrl String?       @map("hosted_page_url")
+  failureReason String?       @map("failure_reason")
+  paidAt        DateTime?     @map("paid_at")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  cancelled
+}
+
+// -------------------------------------------------------------
+// Reviews — one per completed booking
+// -------------------------------------------------------------
+
+model Review {
+  id         String   @id @default(cuid())
+  bookingId  String   @unique @map("booking_id")
+  vendorId   String   @map("vendor_id")
+  customerId String   @map("customer_id")
+  rating     Int      // 1..5
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, createdAt])
+  @@index([customerId])
+  @@map("reviews")
+}
+
+// -------------------------------------------------------------
+// Smart-alert engine
+// -------------------------------------------------------------
+
+model Alert {
+  id        String      @id @default(cuid())
+  bookingId String      @map("booking_id")
+  dueAt     DateTime    @map("due_at")
+  etaMin    Int         @default(0) @map("eta_min")
+  status    AlertStatus @default(scheduled)
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @updatedAt @map("updated_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([status, dueAt])
+  @@index([bookingId])
+  @@map("alerts")
+}
+
+enum AlertStatus {
+  scheduled
+  fired
+  cancelled
+}
+
+model DeviceToken {
+  id         String   @id @default(cuid())
+  userId     String   @map("user_id")
+  fcmToken   String   @unique @map("fcm_token")
+  platform   String   @default("android")
+  lastSeenAt DateTime @default(now()) @map("last_seen_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+enum BookingStatus {
+  pending_payment
+  confirmed
+  alert_scheduled
+  alerted
+  in_progress
+  completed
+  cancelled
+  no_show
+}

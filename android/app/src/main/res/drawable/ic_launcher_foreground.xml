@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon foreground per design handoff §App Icon.
+
+  Composition (in a 108x108 viewport, all visual inside the 66dp safe zone):
+   1. White water drop silhouette (path matches screens.jsx exactly).
+   2. Deep-teal "P" glyph centered in the lower half of the drop — stem on
+      the left + half-pill bowl curving out to the right.
+   3. Small deep-teal "location ping" dot near the top of the drop.
+
+  Translates the SVG recipe in screens-android.jsx to an Android vector. Uses
+  evenOdd fill on the P so the bowl has a transparent hole through it.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- White water drop silhouette -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M 54,22
+                          C 54,22 32,46 32,64
+                          C 32,77 42,86 54,86
+                          C 66,86 76,77 76,64
+                          C 76,46 54,22 54,22 Z" />
+
+    <!-- Deep-teal "P" glyph (stem + bowl as one path with an evenOdd hole) -->
+    <path
+        android:fillColor="#0F766E"
+        android:fillType="evenOdd"
+        android:pathData="M 46,48
+                          L 46,76
+                          L 53,76
+                          L 53,66
+                          L 60,66
+                          C 67,66 71,62 71,57
+                          C 71,52 67,48 60,48 Z
+                          M 53,54
+                          L 60,54
+                          C 62.5,54 64,55.5 64,57
+                          C 64,58.5 62.5,60 60,60
+                          L 53,60 Z" />
+
+    <!-- Small location ping near the top of the drop -->
+    <path
+        android:fillColor="#0F766E"
+        android:fillAlpha="0.55"
+        android:pathData="M 51.6,36
+                          a 2.4,2.4 0 1,0 4.8,0
+                          a 2.4,2.4 0 1,0 -4.8,0 Z" />
+
+</vector>

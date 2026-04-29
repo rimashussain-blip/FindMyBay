@@ -1,0 +1,76 @@
+package ae.findmybay.data.api.dto
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class CreateBookingBody(
+    val vendorId: String,
+    val serviceId: String,
+    val slotStart: String, // ISO 8601
+)
+
+@Serializable
+data class BookingDto(
+    val id: String,
+    val status: String,
+    val vendor: BookingVendorDto,
+    val service: BookingServiceDto,
+    val bay: BookingBayDto,
+    val slotStart: String,
+    val slotEnd: String,
+    val totalAed: Int,
+    val createdAt: String,
+)
+
+@Serializable
+data class BookingListResponse(val items: List<BookingDto>)
+
+@Serializable
+data class BookingVendorDto(
+    val id: String,
+    val brandName: String,
+    val city: String,
+    val emirate: String,
+)
+
+@Serializable
+data class BookingServiceDto(
+    val id: String,
+    val name: String,
+    val durationMin: Int,
+    val priceAed: Int,
+)
+
+@Serializable
+data class BookingBayDto(val id: String, val name: String)
+
+@Serializable
+data class BookingQrDto(
+    val qr: String,
+    val bookingId: String,
+    val slotStart: String,
+    val status: String,
+    val vendorName: String? = null,
+    val bayName: String? = null,
+)
+
+@Serializable
+data class CancelBookingResponse(
+    val id: String,
+    val status: String,
+    /** "free" if cancelled >30 min before slot, otherwise "late_fee_aed_10" */
+    val refundPolicy: String,
+    val minsToSlot: Int,
+)
+
+@Serializable
+data class ReviewBody(val rating: Int, val note: String? = null)
+
+@Serializable
+data class ReviewDto(
+    val id: String,
+    val bookingId: String,
+    val rating: Int,
+    val note: String? = null,
+    val createdAt: String,
+)

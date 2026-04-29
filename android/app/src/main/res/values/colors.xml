@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand palette mirror for XML resources (themes.xml, drawables, etc.).
+         Keep in sync with Color.kt. Source: design_handoff_find_my_bay. -->
+
+    <!-- Primary ramp -->
+    <color name="fmb_ink">#FF0B3B36</color>
+    <color name="fmb_primary_deep">#FF0F766E</color>
+    <color name="fmb_primary">#FF14B8A6</color>
+    <color name="fmb_primary_light">#FF2DD4BF</color>
+    <color name="fmb_mint">#FFE6F7F4</color>
+    <color name="fmb_mint_edge">#FFCDEEE8</color>
+
+    <!-- Warm accents -->
+    <color name="fmb_sand">#FFFCE7C8</color>
+    <color name="fmb_sand_deep">#FFF5C77E</color>
+    <color name="fmb_cream">#FFFFF7EC</color>
+
+    <!-- Status -->
+    <color name="fmb_coral">#FFFF8B6B</color>
+    <color name="fmb_coral_soft">#FFFFE3D9</color>
+
+    <!-- Neutrals -->
+    <color name="fmb_ink_soft">#FF3F6B65</color>
+
+    <!-- Legacy aliases for any third-party snippet that still uses old names. -->
+    <color name="fmb_blue_500">#FF14B8A6</color>
+    <color name="fmb_blue_300">#FF2DD4BF</color>
+    <color name="fmb_amber_500">#FFF5C77E</color>
+</resources>

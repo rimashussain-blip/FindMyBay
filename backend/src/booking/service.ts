@@ -1,0 +1,151 @@
+// Booking creation + listing.
+
+import { prisma } from '../config/db.js';
+import { HttpError } from '../lib/error.js';
+import { logger } from '../lib/logger.js';
+
+export interface CreateBookingInput {
+  customerId: string;
+  vendorId: string;
+  serviceId: string;
+  slotStartIso: string; // ISO8601 with timezone
+}
+
+export interface BookingDto {
+  id: string;
+  status: string;
+  vendor: { id: string; brandName: string; city: string; emirate: string };
+  service: { id: string; name: string; durationMin: number; priceAed: number };
+  bay: { id: string; name: string };
+  slotStart: string;
+  slotEnd: string;
+  totalAed: number;
+  createdAt: string;
+}
+
+// Bookings created in pending_payment that are older than this are treated as
+// abandoned: their slot is releasable, and a fresh booking can take their bay.
+const PENDING_PAYMENT_HOLD_MS = 15 * 60 * 1000;
+
+/**
+ * Create a booking in `pending_payment`. The customer must POST /bookings/:id/pay
+ * to drive it through the configured processor; the smart-alert is scheduled
+ * only after payment succeeds.
+ *
+ * Slot conflicts include any active booking AND any pending_payment booking
+ * created in the last 15 minutes — to avoid two customers each starting a
+ * payment for the same bay at the same time.
+ */
+export async function createBooking(input: CreateBookingInput): Promise<BookingDto> {
+  const { customerId, vendorId, serviceId, slotStartIso } = input;
+
+  const slotStart = new Date(slotStartIso);
+  if (isNaN(slotStart.getTime()))
+    throw new HttpError(400, 'Invalid slotStart timestamp', { code: 'invalid_slot' });
+  if (slotStart.getTime() < Date.now() - 60_000)
+    throw new HttpError(400, 'Slot is in the past', { code: 'slot_in_past' });
+
+  const holdCutoff = new Date(Date.now() - PENDING_PAYMENT_HOLD_MS);
+
+  // Step 1: create the booking inside a transaction so bay-selection +
+  // overlap check + insert is atomic.
+  const booking = await prisma.$transaction(async (tx) => {
+    const service = await tx.service.findFirst({
+      where: { id: serviceId, vendorId, deletedAt: null },
+    });
+    if (!service)
+      throw new HttpError(404, 'Service not found for this vendor', { code: 'service_not_found' });
+
+    const slotEnd = new Date(slotStart.getTime() + service.durationMin * 60_000);
+
+    const bays = await tx.bay.findMany({
+      where: { vendorId, deletedAt: null, status: { not: 'closed' } },
+      orderBy: { name: 'asc' },
+    });
+    if (bays.length === 0)
+      throw new HttpError(409, 'No bays available at this vendor', { code: 'no_bays' });
+
+    const conflicts = await tx.booking.findMany({
+      where: {
+        vendorId,
+        bayId: { in: bays.map((b) => b.id) },
+        slotStart: { lt: slotEnd },
+        slotEnd: { gt: slotStart },
+        OR: [
+          { status: { in: ['confirmed', 'alert_scheduled', 'alerted', 'in_progress'] } },
+          // Hold the bay for an in-flight payment, but only briefly.
+          { status: 'pending_payment', createdAt: { gt: holdCutoff } },
+        ],
+      },
+      select: { bayId: true },
+    });
+    const busyBayIds = new Set(conflicts.map((c) => c.bayId));
+    const bay = bays.find((b) => !busyBayIds.has(b.id));
+    if (!bay)
+      throw new HttpError(409, 'All bays are booked for this slot', { code: 'no_slot_available' });
+
+    return tx.booking.create({
+      data: {
+        customerId,
+        vendorId,
+        bayId: bay.id,
+        serviceId: service.id,
+        slotStart,
+        slotEnd,
+        totalAed: service.priceAed,
+        status: 'pending_payment',
+      },
+      include: {
+        vendor: { select: { id: true, brandName: true, city: true, emirate: true } },
+        service: { select: { id: true, name: true, durationMin: true, priceAed: true } },
+        bay: { select: { id: true, name: true } },
+      },
+    });
+  });
+
+  logger.info(
+    { bookingId: booking.id, vendorId, bayId: booking.bayId, slotStart },
+    'booking created (pending_payment)',
+  );
+
+  return toDto(booking);
+}
+
+export async function listMyBookings(customerId: string): Promise<BookingDto[]> {
+  const rows = await prisma.booking.findMany({
+    where: { customerId },
+    orderBy: { slotStart: 'desc' },
+    take: 50,
+    include: {
+      vendor: { select: { id: true, brandName: true, city: true, emirate: true } },
+      service: { select: { id: true, name: true, durationMin: true, priceAed: true } },
+      bay: { select: { id: true, name: true } },
+    },
+  });
+  return rows.map(toDto);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function toDto(b: any): BookingDto {
+  return {
+    id: b.id,
+    status: String(b.status),
+    vendor: {
+      id: b.vendor.id,
+      brandName: b.vendor.brandName,
+      city: b.vendor.city,
+      emirate: String(b.vendor.emirate),
+    },
+    service: {
+      id: b.service.id,
+      name: b.service.name,
+      durationMin: b.service.durationMin,
+      priceAed: b.service.priceAed,
+    },
+    bay: { id: b.bay.id, name: b.bay.name },
+    slotStart: b.slotStart.toISOString(),
+    slotEnd: b.slotEnd.toISOString(),
+    totalAed: b.totalAed,
+    createdAt: b.createdAt.toISOString(),
+  };
+}

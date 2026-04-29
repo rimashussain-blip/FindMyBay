@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>Find My Bay — refined</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<style>
+  :root {
+    --primary: #14B8A6;
+    --primary-deep: #0F766E;
+    --ink: #0B3B36;
+    --ink-soft: #3F6B65;
+    --cream: #FFF7EC;
+    --sand: #FCE7C8;
+    --sand-deep: #F5C77E;
+    --mint: #E6F7F4;
+    --mint-edge: #CDEEE8;
+    --coral: #FF8B6B;
+  }
+  html, body { margin: 0; padding: 0; background: var(--cream); font-family: -apple-system, "SF Pro", "Inter", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+  @keyframes pulse { 0%, 100% { transform: scale(1); opacity: .55 } 50% { transform: scale(1.15); opacity: .25 } }
+  .page {
+    max-width: 1320px; margin: 0 auto; padding: 56px 40px 80px;
+  }
+  .header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+  .header h1 {
+    margin: 0; font-size: 38px; letter-spacing: -1.2px; font-weight: 800; color: var(--ink);
+    line-height: 1.05;
+  }
+  .header h1 small { display: block; font-size: 13px; font-weight: 500; color: var(--ink-soft); letter-spacing: 0; margin-top: 8px; }
+  .palette { display: flex; gap: 18px; align-items: center; }
+  .swatch { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 10px; color: var(--ink-soft); font-weight: 500; }
+  .chip { width: 36px; height: 36px; border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(11,59,54,0.06); }
+
+  .icon-block {
+    margin-top: 36px; padding: 32px;
+    border-radius: 28px;
+    background: linear-gradient(135deg, #FFFFFF 0%, var(--mint) 60%, var(--sand) 100%);
+    border: 1px solid var(--mint-edge);
+    display: flex; gap: 36px; align-items: center; flex-wrap: wrap;
+  }
+  .icon-block .copy { flex: 1; min-width: 280px; }
+  .icon-block h2 { margin: 0 0 6px; font-size: 18px; letter-spacing: -0.4px; }
+  .icon-block p { margin: 0; font-size: 13px; color: var(--ink-soft); line-height: 1.55; max-width: 520px; }
+  .icon-row { display: flex; gap: 24px; align-items: flex-end; }
+  .icon-cap { font-size: 10px; color: var(--ink-soft); text-align: center; margin-top: 8px; font-weight: 600; letter-spacing: 0.2px; text-transform: uppercase; }
+
+  .grid {
+    margin-top: 56px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 32px 24px;
+  }
+  @media (max-width: 1100px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  .card { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+  .card .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    background: var(--primary); color: white;
+    font-size: 11px; font-weight: 700; margin-right: 8px;
+  }
+  .card .label { font-size: 14px; font-weight: 700; color: var(--ink); display: flex; align-items: center; }
+  .card .cap { font-size: 11px; color: var(--ink-soft); text-align: center; line-height: 1.55; max-width: 260px; }
+
+  .section-title {
+    margin: 56px 0 0; font-size: 11px; font-weight: 700; color: var(--primary-deep);
+    text-transform: uppercase; letter-spacing: 1.5px;
+  }
+  .section-title + .grid { margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<div class="page">
+  <div class="header">
+    <h1>
+      Find My Bay
+      <small>Refined direction — fresh aqua, warm sand, soft cream. Modern, welcoming, clear.</small>
+    </h1>
+    <div class="palette">
+      <div class="swatch"><div class="chip" style="background:#14B8A6"></div>Aqua</div>
+      <div class="swatch"><div class="chip" style="background:#0F766E"></div>Deep</div>
+      <div class="swatch"><div class="chip" style="background:#FFF7EC"></div>Cream</div>
+      <div class="swatch"><div class="chip" style="background:#FCE7C8"></div>Sand</div>
+      <div class="swatch"><div class="chip" style="background:#F5C77E"></div>Amber</div>
+      <div class="swatch"><div class="chip" style="background:#FF8B6B"></div>Coral</div>
+      <div class="swatch"><div class="chip" style="background:#E6F7F4"></div>Mint</div>
+      <div class="swatch"><div class="chip" style="background:#0B3B36"></div>Ink</div>
+    </div>
+  </div>
+
+  <div class="icon-block">
+    <div class="copy">
+      <h2>App icon</h2>
+      <p>A water-drop silhouette wrapped around a stylised "P" — the wash and the bay in one mark. Aqua-to-deep-teal gradient with a warm sand glow grounds the icon in the brand's welcoming feel; bright enough to pop on a home screen, soft enough to feel calm.</p>
+    </div>
+    <div class="icon-row">
+      <div>
+        <div id="icon-180"></div>
+        <div class="icon-cap">180 px</div>
+      </div>
+      <div>
+        <div id="icon-120"></div>
+        <div class="icon-cap">120 px</div>
+      </div>
+      <div>
+        <div id="icon-60"></div>
+        <div class="icon-cap">60 px</div>
+      </div>
+      <div>
+        <div id="icon-40"></div>
+        <div class="icon-cap">40 px</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-title">Screens</div>
+  <div class="grid" id="screens"></div>
+</div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel">
+  const iconSizes = [180, 120, 60, 40];
+  iconSizes.forEach(s => {
+    const node = document.getElementById('icon-' + s);
+    if (node) ReactDOM.createRoot(node).render(<AppIcon size={s} />);
+  });
+
+  const screens = [
+    { num: 1, label: 'Phone OTP', cap: 'Welcoming sand glow behind the logo. Clean phone-input with country flag and friendly placeholder.', C: ScreenOTP },
+    { num: 2, label: 'OTP Verify', cap: 'Six clean code cells with a focus halo. Resend countdown built in.', C: ScreenVerify },
+    { num: 3, label: 'Nearby Map', cap: 'Warm map tones, glanceable filter chips, sticky search and a shop card peeking from below.', C: ScreenMap },
+    { num: 4, label: 'Vendor Detail', cap: 'Soft mint-to-sand hero. Live bay grid (free / busy). Service rows with the picked option highlighted.', C: ScreenVendor },
+    { num: 5, label: 'Slot Picker', cap: 'Day cards above a tappable time grid. Smart-leave promise reinforces the core value-add.', C: ScreenSlot },
+    { num: 6, label: 'Booking Confirmed', cap: 'Receipt-style card with notch cut-outs. Calendar / directions shortcuts inline.', C: ScreenConfirmed },
+    { num: 7, label: 'Leave Now', cap: 'Hero alert in the deep aqua → ink gradient. Warm sand CTA pops with reassuring weight.', C: ScreenLeave },
+    { num: 8, label: 'My Bookings', cap: 'Active booking with countdown header. Loyalty teaser uses the warm sand-to-coral gradient.', C: ScreenBookings },
+  ];
+
+  const Grid = () => (
+    <>
+      {screens.map(({ num, label, cap, C }) => (
+        <div className="card" key={num}>
+          <C />
+          <div className="label"><span className="num">{num}</span>{label}</div>
+          <div className="cap">{cap}</div>
+        </div>
+      ))}
+    </>
+  );
+  ReactDOM.createRoot(document.getElementById('screens')).render(<Grid/>);
+</script>
+</body>
+</html>

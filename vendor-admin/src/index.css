@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    'SF Pro Display',
+    system-ui,
+    'Segoe UI',
+    Roboto,
+    'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@layer components {
+  /* Brand-styled CTA — Aqua → Deep gradient with subtle shadow */
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-full px-5 py-2.5 text-sm font-medium text-white shadow-sm shadow-primary/30 transition hover:shadow-md hover:shadow-primary/40 disabled:opacity-50 disabled:shadow-none;
+    background-image: linear-gradient(135deg, #14b8a6 0%, #0f766e 100%);
+  }
+  .btn-outlined {
+    @apply inline-flex items-center justify-center rounded-full border border-mint-edge bg-white px-5 py-2.5 text-sm font-medium text-ink transition hover:border-primary/40 hover:bg-mint;
+  }
+  .btn-text {
+    @apply text-sm font-medium text-primary-deep hover:underline;
+  }
+  .input {
+    @apply w-full rounded-lg border border-mint-edge bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20;
+  }
+  .label-eyebrow {
+    @apply text-[11px] font-bold uppercase tracking-wider text-primary-deep;
+  }
+  .card {
+    @apply rounded-2xl border border-mint-edge bg-white p-5 shadow-sm shadow-mint-edge/40;
+  }
+  /* Soft mint halo placed behind hero cards (login, etc.) */
+  .halo-mint {
+    background-image: radial-gradient(ellipse at center, rgba(230, 247, 244, 0.95) 0%, transparent 70%);
+  }
+}

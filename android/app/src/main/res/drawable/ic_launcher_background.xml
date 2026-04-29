@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive icon background.
+  Per design handoff §App Icon: radial gradient #2DD4BF → #14B8A6 → #0F766E with
+  a warm sand glow bottom-right. Android adaptive icons can use a layer-list
+  with a radial GradientDrawable. We approximate the spec with a layered XML.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="120"
+                android:centerX="0.3"
+                android:centerY="0"
+                android:startColor="#2DD4BF"
+                android:centerColor="#14B8A6"
+                android:endColor="#0F766E" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="100"
+                android:centerX="0.85"
+                android:centerY="1"
+                android:startColor="#8CF5C77E"
+                android:endColor="#00F5C77E" />
+        </shape>
+    </item>
+</layer-list>

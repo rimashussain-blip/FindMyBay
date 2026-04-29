@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Find My Bay</string>
+    <string name="tagline">Book a free wash bay in seconds — across the UAE</string>
+
+    <!-- Auth -->
+    <string name="phone_hint">+971 50 123 4567</string>
+    <string name="phone_label">Mobile number</string>
+    <string name="send_otp">Send OTP</string>
+    <string name="verify_continue">Verify &amp; Continue</string>
+    <string name="resend_code">Resend code</string>
+
+    <!-- Permissions rationale -->
+    <string name="loc_rationale_title">We need your location</string>
+    <string name="loc_rationale_body">Find My Bay uses your location to show car washes near you and to alert you in time before your slot — accounting for live traffic.</string>
+</resources>
