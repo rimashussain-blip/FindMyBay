@@ -24,10 +24,18 @@ datasource db {
 
 model User {
   id           String   @id @default(cuid())
-  phone        String?  @unique
+  // Phone uniqueness is partial (role='customer' only). Enforced by a raw-SQL
+  // partial index in 20260505000000_phone_unique_per_customer migration —
+  // Prisma's @@unique can't express partial indexes, so the schema declares
+  // phone as plain nullable here. Email stays globally unique.
+  phone        String?
   email        String?  @unique
   passwordHash String?  @map("password_hash")
   fullName     String?  @map("full_name")
+  // Google account `sub` claim — set when the user signs in with Google.
+  // Treated as the authoritative Google identity (email can change at Google's
+  // end; sub is stable). Null for users who only use phone OTP or email/pwd.
+  googleSub    String?  @unique @map("google_sub")
   role         Role     @default(customer)
   // Last-known device location, posted by the customer app while a booking
   // window is approaching. Used by the smart-alert worker to compute ETA
@@ -35,6 +43,15 @@ model User {
   lastLat        Float?    @map("last_lat")
   lastLng        Float?    @map("last_lng")
   lastLocationAt DateTime? @map("last_location_at")
+
+  // Customer car profile — captured during the first-run onboarding right
+  // after Google sign-in. carType drives which vendor services are shown
+  // (e.g. an SUV-only customer doesn't see "Sedan compact wash").
+  carMake     String?   @map("car_make")
+  carType     CarType?  @map("car_type")
+  carColor    String?   @map("car_color")
+  carPlate    String?   @map("car_plate")
+
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
@@ -52,6 +69,18 @@ enum Role {
   vendor_manager
   attendant
   admin
+}
+
+/// Car body types we filter against. Mirror these in the Android UI's car-type
+/// chip selector. Add new variants here BEFORE adding them to a service.
+enum CarType {
+  sedan
+  hatchback
+  suv
+  pickup
+  van
+  coupe
+  other
 }
 
 // -------------------------------------------------------------
@@ -203,6 +232,12 @@ model Service {
   durationMin   Int      @map("duration_min")
   priceAed      Int      @map("price_aed")
   vatInclusive  Boolean  @default(true) @map("vat_inclusive")
+
+  // Which car body-types this service is designed for. Empty array = "fits any
+  // car". The customer app filters down to services whose carTypes contains
+  // their saved carType (or that have an empty list = universal).
+  carTypes      CarType[] @default([]) @map("car_types")
+
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
   deletedAt     DateTime? @map("deleted_at")
@@ -220,7 +255,10 @@ model Service {
 
 model Booking {
   id         String        @id @default(cuid())
-  customerId String        @map("customer_id")
+  // Nullable: walk-in bookings (recorded by vendor staff at the desk for a
+  // customer who showed up without a prior reservation) have no registered
+  // User. See `isWalkIn` + `walkInName` + `walkInPhone`.
+  customerId String?       @map("customer_id")
   vendorId   String        @map("vendor_id")
   bayId      String        @map("bay_id")
   serviceId  String        @map("service_id")
@@ -228,10 +266,20 @@ model Booking {
   slotEnd    DateTime      @map("slot_end")
   status     BookingStatus @default(pending_payment)
   totalAed   Int           @map("total_aed")
+
+  // Walk-in metadata. `isWalkIn = true` means this row was created via the
+  // walk-in flow (POST /admin/walk-in) — vendor staff captured whatever
+  // contact info the customer chose to share. The customer FK is null in
+  // this case. Walk-ins do not trigger smart-alert pushes and have no
+  // Payment row in V1 (paid in person off-platform).
+  isWalkIn     Boolean @default(false) @map("is_walk_in")
+  walkInName   String? @map("walk_in_name")
+  walkInPhone  String? @map("walk_in_phone")
+
   createdAt  DateTime      @default(now()) @map("created_at")
   updatedAt  DateTime      @updatedAt @map("updated_at")
 
-  customer User    @relation(fields: [customerId], references: [id])
+  customer User?   @relation(fields: [customerId], references: [id])
   vendor   Vendor  @relation(fields: [vendorId], references: [id])
   bay      Bay     @relation(fields: [bayId], references: [id])
   service  Service @relation(fields: [serviceId], references: [id])

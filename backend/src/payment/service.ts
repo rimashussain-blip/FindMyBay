@@ -15,7 +15,7 @@ import { env } from '../config/env.js';
 import { HttpError } from '../lib/error.js';
 import { logger } from '../lib/logger.js';
 import { scheduleAlertForBooking } from '../alert/service.js';
-import { emitBookingStatus } from '../realtime/server.js';
+import { emitBookingStatus, emitVendorBookingChanged } from '../realtime/server.js';
 import { getPaymentProcessor } from './processors/index.js';
 
 export interface IntentDto {
@@ -77,8 +77,11 @@ export async function createIntentForBooking(
     bookingId: booking.id,
     amountAed: booking.totalAed,
     description: `${booking.vendor.brandName} — ${booking.service.name}`,
-    customerEmail: booking.customer.email ?? undefined,
-    customerPhone: booking.customer.phone ?? undefined,
+    // Walk-ins (customer === null) never reach this code: they have no
+    // customerId, so the !customerId check above already 404s. The optional
+    // chain just narrows TS away from `null`.
+    customerEmail: booking.customer?.email ?? undefined,
+    customerPhone: booking.customer?.phone ?? undefined,
     returnUrl: env.PAYMENT_RETURN_DEEP_LINK,
     webhookUrl: `${env.PUBLIC_API_BASE_URL}/payments/${paymentRef}/webhook/${processor.name}`,
   });
@@ -196,6 +199,7 @@ export async function confirmPayment(input: {
       paymentStatus: 'succeeded',
       bookingStatus: String(updatedBooking.status),
       bookingId: payment.bookingId,
+      vendorId: updatedBooking.vendorId,
       slotStart: updatedBooking.slotStart,
       customerId: updatedBooking.customerId,
       booked: true as const,
@@ -212,6 +216,9 @@ export async function confirmPayment(input: {
     }
     try {
       emitBookingStatus(result.customerId, result.bookingId, 'confirmed');
+      // Vendor's open Walk-in calendar refetches and the just-paid slot
+      // disappears from "available".
+      emitVendorBookingChanged(result.vendorId, result.bookingId, 'confirmed');
     } catch (err) {
       logger.warn({ err, bookingId: result.bookingId }, 'failed to emit booking:status');
     }

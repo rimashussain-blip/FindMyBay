@@ -83,13 +83,16 @@ export async function emitBayUpdate(
 /**
  * Emit a booking-status change to the customer's private room so the app
  * can refresh My Bookings without polling.
+ *
+ * Walk-in bookings have no customer (customerId = null); we skip the emit
+ * silently in that case — there's no device to notify.
  */
 export function emitBookingStatus(
-  customerId: string,
+  customerId: string | null,
   bookingId: string,
   status: string,
 ): void {
-  if (!io) return;
+  if (!io || !customerId) return;
   const room = `customer:${customerId}`;
   const sockets = io.sockets.adapter.rooms.get(room);
   io.to(room).emit('booking:status', { bookingId, status });
@@ -97,4 +100,21 @@ export function emitBookingStatus(
     { customerId, bookingId, status, listeners: sockets?.size ?? 0 },
     'realtime: booking:status emitted',
   );
+}
+
+/**
+ * Notify the vendor admin room that a booking was created or changed
+ * status, so any open Walk-in calendar / Bookings list refetches and the
+ * cell flips from available → booked (or back) in real time.
+ *
+ * Fired alongside emitBookingStatus on every booking transition; cheap to
+ * subscribe to and avoids the customer-room JWT scoping for the vendor.
+ */
+export function emitVendorBookingChanged(
+  vendorId: string,
+  bookingId: string,
+  status: string,
+): void {
+  if (!io) return;
+  io.to(`vendor:${vendorId}`).emit('booking:changed', { bookingId, status });
 }

@@ -24,7 +24,16 @@ const schema = z.object({
 
   // Maps & push (optional in dev; mock providers used when not set)
   GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
+  // For local dev: point at a service-account JSON file on disk.
   FIREBASE_SERVICE_ACCOUNT_PATH: z.string().optional().default(''),
+  // For container deploys: the JSON content itself, injected as a secret env
+  // var. Either FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON
+  // can be set; if both, JSON wins.
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional().default(''),
+  // Google Sign-In: the **Web** OAuth client ID from your Firebase / Google
+  // Cloud project. Required when /auth/google is enabled. Both the Android
+  // app and this backend must point at the same value.
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(''),
 
   // Payments. `mock` returns a local hosted page that lets us click
   // succeed/fail buttons without contacting any third party — good for dev

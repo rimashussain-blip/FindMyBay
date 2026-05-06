@@ -14,7 +14,13 @@ export interface CreateBookingInput {
 export interface BookingDto {
   id: string;
   status: string;
-  vendor: { id: string; brandName: string; city: string; emirate: string };
+  vendor: {
+    id: string;
+    brandName: string;
+    city: string;
+    emirate: string;
+    logoUrl: string | null;
+  };
   service: { id: string; name: string; durationMin: number; priceAed: number };
   bay: { id: string; name: string };
   slotStart: string;
@@ -96,7 +102,7 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
         status: 'pending_payment',
       },
       include: {
-        vendor: { select: { id: true, brandName: true, city: true, emirate: true } },
+        vendor: { select: { id: true, brandName: true, city: true, emirate: true, logoUrl: true } },
         service: { select: { id: true, name: true, durationMin: true, priceAed: true } },
         bay: { select: { id: true, name: true } },
       },
@@ -117,7 +123,7 @@ export async function listMyBookings(customerId: string): Promise<BookingDto[]> 
     orderBy: { slotStart: 'desc' },
     take: 50,
     include: {
-      vendor: { select: { id: true, brandName: true, city: true, emirate: true } },
+      vendor: { select: { id: true, brandName: true, city: true, emirate: true, logoUrl: true } },
       service: { select: { id: true, name: true, durationMin: true, priceAed: true } },
       bay: { select: { id: true, name: true } },
     },
@@ -135,6 +141,7 @@ function toDto(b: any): BookingDto {
       brandName: b.vendor.brandName,
       city: b.vendor.city,
       emirate: String(b.vendor.emirate),
+      logoUrl: b.vendor.logoUrl ?? null,
     },
     service: {
       id: b.service.id,

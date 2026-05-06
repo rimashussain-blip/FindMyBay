@@ -1,0 +1,36 @@
+# Don't ship local dev junk into the image.
+
+node_modules
+dist
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+!.env.production.example
+
+# Local Docker (not the prod compose)
+docker-compose.yml
+
+# Editor / OS
+.vscode
+.idea
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Secrets — these MUST come in from env / mounted volumes, never the image.
+secrets/
+
+# Test artifacts (none yet, but future-proof)
+coverage/
+*.test.ts
+*.spec.ts
+
+# Documentation we don't need at runtime
+README.md
+SMART_ALERT_DEMO.md

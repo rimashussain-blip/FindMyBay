@@ -112,12 +112,17 @@ export async function verifyOtp(phone: string, challengeId: string, code: string
     data: { consumedAt: new Date() },
   });
 
-  // Find or create the user.
-  const user = await prisma.user.upsert({
-    where: { phone },
-    update: {},
-    create: { phone },
-  });
+  // Find or create the customer user. Phone uniqueness is partial (only
+  // among role='customer'); we can't use upsert by phone anymore since
+  // there's no globally unique key. The query is scoped to customers so a
+  // vendor_owner with the same phone (set as contact info during platform
+  // onboarding) is correctly ignored and a fresh customer row is created.
+  let user = await prisma.user.findFirst({ where: { phone, role: 'customer' } });
+  if (!user) {
+    user = await prisma.user.create({
+      data: { phone, role: 'customer' },
+    });
+  }
 
   // Issue tokens.
   const accessToken = signAccessToken(user.id, user.role);

@@ -124,11 +124,13 @@ platformRouter.post(
             },
           });
         } else if (owner.role === 'customer') {
-          // Promote a previously customer-only user to vendor_owner so their
-          // JWT carries the right role on next sign-in.
-          owner = await tx.user.update({
-            where: { id: owner.id },
-            data: { role: 'vendor_owner' },
+          // The email is already on a customer account. Refuse to mutate
+          // their role (they'd lose their customer identity, bookings, etc).
+          // Since email is globally unique, the platform admin must onboard
+          // this vendor with a different email. The same human can still be
+          // both — they just need separate addresses for each role.
+          throw new HttpError(409, 'This email is already a customer account. Use a different email for the vendor owner.', {
+            code: 'email_is_customer',
           });
         }
       }
@@ -367,6 +369,134 @@ platformRouter.patch(
       'platform admin flipped vendor status',
     );
     res.json({ id: updated.id, status: String(updated.status) });
+  }),
+);
+
+// ── App users (super-admin oversight) ───────────────────────────────────
+//
+// Lists customers (role = 'customer') so the platform admin can see who's
+// signed up, contact details, car profile, and a count of their bookings.
+// A matching detail endpoint returns the full profile + booking history for
+// a single user. Vendor staff and other non-admin roles cannot reach these
+// (requireRole('admin')).
+
+const listUsersQuery = z.object({
+  q: z.string().trim().min(1).max(80).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+platformRouter.get(
+  '/users',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const { q, limit, offset } = listUsersQuery.parse(req.query);
+
+    const where: Prisma.UserWhereInput = { role: 'customer' };
+    if (q) {
+      // Substring match across the most useful identifiers. Plate is matched
+      // case-insensitive after the same normalisation we apply on save.
+      const plateNorm = q.trim().toUpperCase().replace(/\s+/g, ' ');
+      where.OR = [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { email:    { contains: q, mode: 'insensitive' } },
+        { phone:    { contains: q } },
+        { carPlate: { contains: plateNorm, mode: 'insensitive' } },
+        { carMake:  { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, items] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+        select: {
+          id: true,
+          fullName: true,
+          email: true,
+          phone: true,
+          carMake: true,
+          carType: true,
+          carColor: true,
+          carPlate: true,
+          createdAt: true,
+          _count: { select: { bookings: true } },
+        },
+      }),
+    ]);
+
+    res.json({
+      total,
+      limit,
+      offset,
+      items: items.map((u) => ({
+        id: u.id,
+        fullName: u.fullName,
+        email: u.email,
+        phone: u.phone,
+        carMake: u.carMake,
+        carType: u.carType ? String(u.carType) : null,
+        carColor: u.carColor,
+        carPlate: u.carPlate,
+        bookingCount: u._count.bookings,
+        profileComplete: Boolean(u.phone && u.carType && u.carPlate),
+        createdAt: u.createdAt.toISOString(),
+      })),
+    });
+  }),
+);
+
+platformRouter.get(
+  '/users/:id',
+  requireAuth,
+  requireRole('admin'),
+  asyncHandler(async (req, res) => {
+    const u = await prisma.user.findUnique({
+      where: { id: req.params.id },
+      include: {
+        bookings: {
+          orderBy: { slotStart: 'desc' },
+          take: 50,
+          include: {
+            vendor: { select: { id: true, brandName: true, city: true } },
+            service: { select: { id: true, name: true } },
+          },
+        },
+      },
+    });
+    if (!u || u.role !== 'customer') {
+      throw new HttpError(404, 'User not found', { code: 'user_not_found' });
+    }
+
+    res.json({
+      id: u.id,
+      fullName: u.fullName,
+      email: u.email,
+      phone: u.phone,
+      carMake: u.carMake,
+      carType: u.carType ? String(u.carType) : null,
+      carColor: u.carColor,
+      carPlate: u.carPlate,
+      lastLat: u.lastLat,
+      lastLng: u.lastLng,
+      lastLocationAt: u.lastLocationAt?.toISOString() ?? null,
+      profileComplete: Boolean(u.phone && u.carType && u.carPlate),
+      createdAt: u.createdAt.toISOString(),
+      bookings: u.bookings.map((b) => ({
+        id: b.id,
+        status: String(b.status),
+        slotStart: b.slotStart.toISOString(),
+        slotEnd: b.slotEnd.toISOString(),
+        totalAed: b.totalAed,
+        vendor: { id: b.vendor.id, brandName: b.vendor.brandName, city: b.vendor.city },
+        service: { id: b.service.id, name: b.service.name },
+        createdAt: b.createdAt.toISOString(),
+      })),
+    });
   }),
 );
 

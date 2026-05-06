@@ -91,6 +91,15 @@ export async function processDueAlerts(now = new Date()): Promise<{ processed: n
       continue;
     }
 
+    // Walk-in bookings have no customer User, so there's no location to
+    // probe and nobody to push to. Walk-ins shouldn't have alert rows in
+    // the first place (we never schedule them in createBookingAlert), but
+    // belt-and-braces guard in case data drifts.
+    if (!b.customer) {
+      await prisma.alert.update({ where: { id: alert.id }, data: { status: 'cancelled' } });
+      continue;
+    }
+
     const origin = pickOrigin(b.customer);
 
     // Geofence suppression: if the customer is already within ARRIVED_RADIUS_M
@@ -158,6 +167,9 @@ export async function fireAlertNow(bookingId: string): Promise<{ fired: boolean;
     },
   });
   if (!alert) return { fired: false, reason: 'no scheduled alert for this booking' };
+  if (!alert.booking.customer) {
+    return { fired: false, reason: 'walk-in bookings have no customer to alert' };
+  }
 
   const origin = pickOrigin(alert.booking.customer);
 
