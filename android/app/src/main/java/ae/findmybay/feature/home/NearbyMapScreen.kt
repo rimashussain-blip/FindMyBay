@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
@@ -51,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import ae.findmybay.R
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.FmbAmber500
 import ae.findmybay.core.theme.FmbBlue100
 import ae.findmybay.core.theme.FmbBlue500
@@ -156,11 +158,16 @@ fun NearbyMapScreen(
                     }
                 }
 
-                // Warm custom map style — mint land, sand sweep, white roads,
-                // pale teal water/parks, no POIs/transit. Loaded once and cached.
+                // Custom map style — picks the dark variant when the app theme
+                // is dark (deep teal-ink tiles + mint accents) or the warm
+                // variant in light mode (mint land + sand sweep + white roads).
+                // Re-loaded whenever the theme flips so the map switches live.
                 val ctx = LocalContext.current
-                val mapStyle = remember {
-                    runCatching { MapStyleOptions.loadRawResourceStyle(ctx, R.raw.map_style_warm) }.getOrNull()
+                val bg = MaterialTheme.colorScheme.background
+                val isDark = (0.299f * bg.red + 0.587f * bg.green + 0.114f * bg.blue) < 0.5f
+                val mapStyle = remember(isDark) {
+                    val resId = if (isDark) R.raw.map_style_dark else R.raw.map_style_warm
+                    runCatching { MapStyleOptions.loadRawResourceStyle(ctx, resId) }.getOrNull()
                 }
 
                 GoogleMap(
@@ -288,10 +295,14 @@ private fun SearchPill(
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val cs = MaterialTheme.colorScheme
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.95f))
+            // Surface in light = warm cream-white; in dark = #06201D ink card.
+            // Hairline mint-edge outline picks up nicely against either.
+            .background(cs.surface.copy(alpha = 0.95f))
+            .border(1.dp, FmbMintEdge, RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -355,13 +366,24 @@ private fun FilterChip(
     onClick: (() -> Unit)?,
 ) {
     val enabled = onClick != null
+    val cs = MaterialTheme.colorScheme
+
+    // Active = aqua-tinted fill with the brand primary as both border + text,
+    //          so it pops against the dark map without going neon. In light
+    //          mode, primaryContainer reads as the existing minty pill.
+    // Inactive enabled = surface fill with a hairline outline.
+    // Disabled = same surface but at reduced opacity, muted text.
     val bg = when {
-        active -> FmbBlue900
-        enabled -> Color.White.copy(alpha = 0.95f)
-        else -> Color.White.copy(alpha = 0.6f)
+        active -> cs.primaryContainer
+        enabled -> cs.surface.copy(alpha = 0.95f)
+        else -> cs.surface.copy(alpha = 0.6f)
+    }
+    val border = when {
+        active -> cs.primary
+        else -> FmbMintEdge
     }
     val fg = when {
-        active -> Color.White
+        active -> if (cs.background.red < 0.3f) cs.primary else FmbBlue900
         enabled -> FmbBlue900
         else -> FmbNeutral700
     }
@@ -369,10 +391,22 @@ private fun FilterChip(
         modifier = Modifier
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
+            .border(1.dp, border, RoundedCornerShape(10.dp))
             .let { if (enabled) it.clickable(onClick = onClick!!) else it }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 7.dp),
     ) {
-        Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = fg)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (active) {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = fg,
+                    modifier = Modifier.size(11.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+            }
+            Text(label, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = fg)
+        }
     }
 }
 
@@ -392,22 +426,14 @@ private fun VendorPeekCard(
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Mint-to-sand thumbnail
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(RoundedCornerShape(14.dp))
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(FmbBlue100, FmbSand),
-                        start = Offset(0f, 0f),
-                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                    )
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("🚿", fontSize = 22.sp)
-        }
+        // Vendor logo thumbnail — falls back to brand initial if there's no
+        // uploaded logo yet, so cards always have a coherent left-edge anchor.
+        VendorLogo(
+            logoUrl = vendor.logoUrl,
+            brandName = vendor.brandName,
+            size = 48.dp,
+            shape = RoundedCornerShape(14.dp),
+        )
         Spacer(Modifier.width(12.dp))
 
         Column(modifier = Modifier.weight(1f)) {

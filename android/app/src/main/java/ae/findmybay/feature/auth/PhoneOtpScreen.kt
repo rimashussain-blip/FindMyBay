@@ -1,7 +1,10 @@
 package ae.findmybay.feature.auth
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,36 +20,71 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ae.findmybay.BuildConfig
+import ae.findmybay.core.auth.GoogleSignInHelper
 import ae.findmybay.core.components.FmbPrimaryButton
 import ae.findmybay.core.components.LogoMark
 import ae.findmybay.core.components.SandHalo
+
+/**
+ * Auth entry screen. Currently Google Sign-In is the primary (and only)
+ * visible path; the phone-OTP flow stays compiled below behind
+ * [SHOW_OTP_FLOW] so we can flip it back on with a one-line change.
+ */
+private const val SHOW_OTP_FLOW = false
 
 @Composable
 fun PhoneOtpScreen(
     vm: AuthViewModel,
     onOtpSent: (phone: String) -> Unit,
+    onGoogleVerified: () -> Unit = {},
+    onNeedsOnboarding: () -> Unit = onGoogleVerified,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val cs = MaterialTheme.colorScheme
+    val context = LocalContext.current
+
+    // Google Sign-In is enabled only when the Web OAuth client ID is wired
+    // into BuildConfig (and a Firebase project exists). Empty in dev builds
+    // until the user fills in GOOGLE_OAUTH_CLIENT_ID in local.properties.
+    val googleEnabled = BuildConfig.GOOGLE_OAUTH_CLIENT_ID.isNotBlank()
+    val googleClient = remember(googleEnabled) {
+        if (googleEnabled) GoogleSignInHelper.build(context, BuildConfig.GOOGLE_OAUTH_CLIENT_ID)
+        else null
+    }
+
+    val googleLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        GoogleSignInHelper.extractIdToken(result.data)
+            .onSuccess { idToken ->
+                vm.signInWithGoogle(
+                    idToken = idToken,
+                    onProfileComplete = onGoogleVerified,
+                    onNeedsOnboarding = onNeedsOnboarding,
+                )
+            }
+            .onFailure { e -> vm.setExternalError(e.message ?: "Google sign-in failed") }
+    }
 
     Scaffold(containerColor = cs.background) { padding ->
         Column(
@@ -81,41 +119,75 @@ fun PhoneOtpScreen(
 
             Spacer(Modifier.height(32.dp))
 
-            // Material 3 outlined text field with floating label notch
-            M3OutlinedPhoneField(
-                phone = state.phone,
-                onPhoneChange = vm::onPhoneChange,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "We'll text you a 6-digit code.",
-                style = MaterialTheme.typography.labelSmall,
-                color = cs.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(start = 14.dp),
-            )
+            // ── Phone-OTP flow (dormant) ───────────────────────────────────
+            // Kept in the source so we can flip SHOW_OTP_FLOW back to true
+            // when phone OTP is reinstated alongside Google.
+            if (SHOW_OTP_FLOW) {
+                M3OutlinedPhoneField(
+                    phone = state.phone,
+                    onPhoneChange = vm::onPhoneChange,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "We'll text you a 6-digit code.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = cs.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth().padding(start = 14.dp),
+                )
+                Spacer(Modifier.height(16.dp))
+                FmbPrimaryButton(
+                    text = "Send code",
+                    onClick = { vm.requestOtp(onSent = onOtpSent) },
+                    enabled = state.phone.length >= 11,
+                    loading = state.loading,
+                    height = 48.dp,
+                    cornerRadius = 24.dp,
+                )
+                Spacer(Modifier.height(20.dp))
+                OrDivider()
+                Spacer(Modifier.height(20.dp))
+            }
 
+            // ── Google Sign-In (primary) ───────────────────────────────────
+            if (googleEnabled && googleClient != null) {
+                GoogleSignInButton(
+                    enabled = !state.loading,
+                    loading = state.loading,
+                    onClick = { googleLauncher.launch(googleClient.signInIntent) },
+                )
+            } else {
+                // Surfaces a clear next step in dev builds before the OAuth
+                // client ID has been pasted into local.properties. Stays out
+                // of release builds because the value is required for ship.
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(cs.surfaceVariant)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                ) {
+                    Text(
+                        "Sign-in is being configured. Add GOOGLE_OAUTH_CLIENT_ID to android/local.properties to enable Continue with Google.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+            }
+
+            // Errors from Google sign-in (cancelled, network, misconfig) live
+            // in the same state slot as OTP errors, so the same surface works
+            // for both flows.
             if (state.error != null) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
                 Text(
                     state.error!!,
                     color = cs.error,
                     style = MaterialTheme.typography.labelSmall,
-                    modifier = Modifier.fillMaxWidth().padding(start = 14.dp),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
-
-            Spacer(Modifier.height(16.dp))
-
-            // Gradient brand pill — 48dp tall, fully rounded per handoff.
-            FmbPrimaryButton(
-                text = "Send code",
-                onClick = { vm.requestOtp(onSent = onOtpSent) },
-                enabled = state.phone.length >= 11,
-                loading = state.loading,
-                height = 48.dp,
-                cornerRadius = 24.dp,
-            )
 
             Spacer(Modifier.weight(1f))
 
@@ -145,6 +217,77 @@ fun PhoneOtpScreen(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun OrDivider() {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Box(modifier = Modifier.weight(1f).height(1.dp).background(cs.outline.copy(alpha = 0.4f)))
+        Text(
+            "  or  ",
+            style = MaterialTheme.typography.labelSmall,
+            color = cs.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        Box(modifier = Modifier.weight(1f).height(1.dp).background(cs.outline.copy(alpha = 0.4f)))
+    }
+}
+
+/**
+ * White pill with a multi-coloured "G" + "Continue with Google" — the
+ * primary auth CTA when phone-OTP is dormant. Approximates the official
+ * Google Sign-In button per their guidelines (white background, dark text,
+ * single-color "G" stand-in for the licensed multi-color glyph). Replace
+ * with the licensed asset before launch.
+ */
+@Composable
+private fun GoogleSignInButton(
+    enabled: Boolean,
+    loading: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val cs = MaterialTheme.colorScheme
+    val canTap = enabled && !loading
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, cs.outline.copy(alpha = 0.4f), RoundedCornerShape(16.dp))
+            .clickable(enabled = canTap, onClick = onClick)
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        if (loading) {
+            CircularProgressIndicator(
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(18.dp),
+                color = Color(0xFF4285F4),
+            )
+        } else {
+            // Single-character "G" in Google blue as a no-asset stand-in for
+            // the licensed multi-colour glyph.
+            Text(
+                "G",
+                color = Color(0xFF4285F4),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+            )
+            Spacer(Modifier.width(12.dp))
+            Text(
+                "Continue with Google",
+                color = Color(0xFF3C4043),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
         }
     }
 }

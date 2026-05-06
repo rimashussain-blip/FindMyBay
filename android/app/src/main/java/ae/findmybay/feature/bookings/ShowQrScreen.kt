@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.haloGradient
 import ae.findmybay.core.theme.primaryCtaGradient
 import com.google.zxing.BarcodeFormat
@@ -139,8 +140,15 @@ fun ShowQrScreen(
                     qrString = state.qr!!.qr,
                     bookingId = state.qr!!.bookingId,
                     vendorName = state.qr!!.vendorName,
+                    vendorLogoUrl = state.qr!!.vendorLogoUrl,
                     bayName = state.qr!!.bayName,
                     slotStartIso = state.qr!!.slotStart,
+                    carPlate = state.qr!!.carPlate,
+                    carDescription = listOfNotNull(
+                        state.qr!!.carColor,
+                        state.qr!!.carMake,
+                        state.qr!!.carType?.replaceFirstChar { it.titlecase() },
+                    ).joinToString(" · ").ifBlank { null },
                 )
             }
         }
@@ -153,8 +161,11 @@ private fun QrBody(
     qrString: String,
     bookingId: String,
     vendorName: String?,
+    vendorLogoUrl: String?,
     bayName: String?,
     slotStartIso: String,
+    carPlate: String?,
+    carDescription: String?,
 ) {
     val cs = MaterialTheme.colorScheme
     val context = LocalContext.current
@@ -188,15 +199,12 @@ private fun QrBody(
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(cs.primaryContainer),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("🚿", fontSize = 12.sp)
-            }
+            VendorLogo(
+                logoUrl = vendorLogoUrl,
+                brandName = vendorName ?: "Vendor",
+                size = 24.dp,
+                shape = RoundedCornerShape(8.dp),
+            )
             Spacer(Modifier.width(8.dp))
             Text(
                 chipText,
@@ -254,6 +262,14 @@ private fun QrBody(
         WaitingForScanPill()
 
         Spacer(Modifier.height(16.dp))
+
+        // Plate card — shows the customer's car details so the attendant
+        // can verify the right car at a glance after scanning. Hidden when
+        // the customer hasn't completed onboarding yet.
+        if (!carPlate.isNullOrBlank()) {
+            PlateCard(plate = carPlate, description = carDescription)
+            Spacer(Modifier.height(16.dp))
+        }
 
         // Brightness-boost tip
         Row(
@@ -689,3 +705,47 @@ private fun formatSlotTime(iso: String): String? = runCatching {
     val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
     local.format(fmt)
 }.getOrNull()
+
+/**
+ * Plate-styled card on the QR screen: deep teal pill with the plate in a
+ * monospaced bold treatment and the car description (colour, make, type)
+ * underneath. Reads at-a-glance for the attendant who just scanned.
+ */
+@Composable
+private fun PlateCard(plate: String, description: String?) {
+    val cs = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(cs.primaryContainer)
+            .border(1.dp, cs.primary, RoundedCornerShape(16.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+            Text(
+                "ATTENDANT — LOOK FOR",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+                color = cs.onPrimaryContainer.copy(alpha = 0.7f),
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                plate,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = 1.6.sp,
+                color = cs.onPrimaryContainer,
+            )
+            if (!description.isNullOrBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    description,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = cs.onPrimaryContainer.copy(alpha = 0.85f),
+                )
+            }
+        }
+    }
+}

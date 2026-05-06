@@ -3,6 +3,8 @@ package ae.findmybay.feature.booking
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,10 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.GridItemSpan
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -156,22 +155,24 @@ fun SlotPickerScreen(
                 }
             }
 
-            // Slots header
+            // Slots header — global "Bay available" legend (the section eyebrows
+            // sit inside each time-of-day frame below).
             Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Eyebrow("Morning slots", modifier = Modifier.weight(1f))
+                Eyebrow("Available slots", modifier = Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(modifier = Modifier.size(6.dp).clip(CircleShape).background(FmbBlue500))
                     Spacer(Modifier.width(4.dp))
                     Text("Bay available", fontSize = 10.sp, color = FmbNeutral700)
                 }
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
 
-            // Slot grid
+            // Time-of-day grouped slot grids — Morning · Afternoon · Evening,
+            // each in its own framed card matching the map vendor-card style.
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 if (state.loading) {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -183,27 +184,31 @@ fun SlotPickerScreen(
                         modifier = Modifier.align(Alignment.Center),
                     )
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    val grouped = remember(state.slots) { groupByTimeOfDay(state.slots) }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(horizontal = 16.dp),
                     ) {
-                        items(state.slots, key = { it.startsAt }) { slot ->
-                            SlotCell(
-                                slot = slot,
-                                selected = state.selectedSlot?.startsAt == slot.startsAt,
-                                onClick = { vm.selectSlot(slot) },
-                            )
+                        grouped.forEach { (period, slots) ->
+                            if (slots.isNotEmpty()) {
+                                TimePeriodFrame(
+                                    title = period.label,
+                                    icon = period.icon,
+                                ) {
+                                    SlotsGrid(
+                                        slots = slots,
+                                        selectedStart = state.selectedSlot?.startsAt,
+                                        onSlotClick = { vm.selectSlot(it) },
+                                    )
+                                }
+                                Spacer(Modifier.height(12.dp))
+                            }
                         }
-
-                        // Sand smart-leave promise card (full-width footer below grid).
-                        item(span = { GridItemSpan(3) }) {
-                            Spacer(Modifier.height(8.dp))
-                        }
-                        item(span = { GridItemSpan(3) }) {
-                            SmartLeavePromise()
-                        }
+                        Spacer(Modifier.height(4.dp))
+                        SmartLeavePromise()
+                        Spacer(Modifier.height(20.dp))
                     }
                 }
             }
@@ -270,16 +275,34 @@ private fun DayCard(
             .background(bg)
             .border(1.dp, border, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp, horizontal = 4.dp),
+            .padding(vertical = 12.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(dayOfWeek, fontSize = 10.sp, color = fg.copy(alpha = if (selected) 0.85f else 0.7f))
-        Spacer(Modifier.height(2.dp))
-        Text(dayNumber, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = fg)
-        Spacer(Modifier.height(2.dp))
-        Box(modifier = Modifier.height(12.dp), contentAlignment = Alignment.Center) {
+        Text(
+            dayOfWeek,
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
+            color = fg.copy(alpha = if (selected) 0.85f else 0.7f),
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            dayNumber,
+            fontSize = 20.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = fg,
+        )
+        Spacer(Modifier.height(3.dp))
+        // Reserve a fixed-height row even on day cells without a Today/Tomorrow
+        // label, so all four cards stay the same height.
+        Box(modifier = Modifier.height(14.dp), contentAlignment = Alignment.Center) {
             if (sub.isNotEmpty()) {
-                Text(sub, fontSize = 9.sp, color = subFg)
+                Text(
+                    sub,
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    color = subFg,
+                )
             }
         }
     }
@@ -362,3 +385,105 @@ private fun formatLocal(iso: String): String =
     runCatching {
         OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).format(SLOT_FORMATTER)
     }.getOrDefault(iso.takeLast(8).take(5))
+
+// ─── Time-of-day grouping ─────────────────────────────────────────────────
+
+/**
+ * Three buckets the slot picker groups into. Boundaries match how UAE
+ * customers think about their day: Morning < 12, Afternoon 12–17, Evening 17+.
+ */
+private enum class TimePeriod(val label: String, val icon: String) {
+    Morning("Morning", "☀️"),
+    Afternoon("Afternoon", "🌤"),
+    Evening("Evening", "🌙"),
+}
+
+private fun groupByTimeOfDay(slots: List<Slot>): Map<TimePeriod, List<Slot>> {
+    val out = linkedMapOf(
+        TimePeriod.Morning to mutableListOf<Slot>(),
+        TimePeriod.Afternoon to mutableListOf<Slot>(),
+        TimePeriod.Evening to mutableListOf<Slot>(),
+    )
+    for (slot in slots) {
+        val hour = runCatching {
+            OffsetDateTime.parse(slot.startsAt).atZoneSameInstant(ZoneId.systemDefault()).hour
+        }.getOrDefault(0)
+        val bucket = when {
+            hour < 12 -> TimePeriod.Morning
+            hour < 17 -> TimePeriod.Afternoon
+            else -> TimePeriod.Evening
+        }
+        out.getValue(bucket).add(slot)
+    }
+    return out
+}
+
+/**
+ * Reusable framed card matching the map's vendor-card silhouette: surface
+ * background, 18.dp rounding, hairline mint-edge border. Title row sits flush
+ * inside the frame.
+ */
+@Composable
+private fun TimePeriodFrame(
+    title: String,
+    icon: String,
+    content: @Composable () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(icon, fontSize = 14.sp)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    title.uppercase(),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.6.sp,
+                    color = FmbBlue700,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            content()
+        }
+    }
+}
+
+/**
+ * 3-column grid of slot cells. Implemented with Rows rather than
+ * LazyVerticalGrid because each frame holds a small fixed list and we want
+ * the parent Column's verticalScroll to drive scrolling.
+ */
+@Composable
+private fun SlotsGrid(
+    slots: List<Slot>,
+    selectedStart: String?,
+    onSlotClick: (Slot) -> Unit,
+) {
+    val rows = slots.chunked(3)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        rows.forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { slot ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        SlotCell(
+                            slot = slot,
+                            selected = selectedStart == slot.startsAt,
+                            onClick = { onSlotClick(slot) },
+                        )
+                    }
+                }
+                // Pad the trailing partial row so cells stay aligned.
+                repeat(3 - row.size) {
+                    Box(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}

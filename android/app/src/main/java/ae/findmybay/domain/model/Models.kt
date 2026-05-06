@@ -66,7 +66,16 @@ data class BookingQr(
     val slotStart: String,
     val status: String,
     val vendorName: String? = null,
+    val vendorLogoUrl: String? = null,
     val bayName: String? = null,
+    /** Customer's car make ("Toyota") — shown on the QR screen for the attendant. */
+    val carMake: String? = null,
+    /** Customer's car type ("suv" / "sedan" / etc.) — surface as enum on the client. */
+    val carType: String? = null,
+    /** Customer's car colour ("Black"). */
+    val carColor: String? = null,
+    /** Plate number — the most useful tag for the attendant. */
+    val carPlate: String? = null,
 )
 
 data class Review(
@@ -89,7 +98,13 @@ data class Booking(
     val createdAt: String,
 )
 
-data class BookingVendor(val id: String, val brandName: String, val city: String, val emirate: String)
+data class BookingVendor(
+    val id: String,
+    val brandName: String,
+    val city: String,
+    val emirate: String,
+    val logoUrl: String? = null,
+)
 data class BookingService(val id: String, val name: String, val durationMin: Int, val priceAed: Int)
 data class BookingBay(val id: String, val name: String)
 
@@ -99,7 +114,33 @@ data class AuthSession(
     val userId: String,
     val phone: String,
     val fullName: String?,
+    /**
+     * `true` once the customer has filled in mobile + car details + plate
+     * during the first-run onboarding flow. `false` for fresh Google sign-ins
+     * that haven't completed it yet — the UI routes those to the onboarding
+     * screen instead of the map.
+     */
+    val profileComplete: Boolean = true,
 )
+
+/**
+ * Car body type — must match the backend `CarType` Postgres enum. The
+ * `wireValue` is what the API serialises (lower-case identifier) and what
+ * we send back when posting updates.
+ */
+enum class CarType(val wireValue: String, val display: String) {
+    Sedan("sedan", "Sedan"),
+    Hatchback("hatchback", "Hatchback"),
+    Suv("suv", "SUV"),
+    Pickup("pickup", "Pickup"),
+    Van("van", "Van"),
+    Coupe("coupe", "Coupe"),
+    Other("other", "Other");
+
+    companion object {
+        fun fromWire(value: String?): CarType? = entries.firstOrNull { it.wireValue == value }
+    }
+}
 
 data class UserProfile(
     val id: String,
@@ -107,6 +148,11 @@ data class UserProfile(
     val email: String?,
     val fullName: String?,
     val role: String,
+    val carMake: String? = null,
+    val carType: CarType? = null,
+    val carColor: String? = null,
+    val carPlate: String? = null,
+    val profileComplete: Boolean = false,
 ) {
     val initials: String get() {
         val source = fullName?.takeIf { it.isNotBlank() } ?: phone ?: email ?: "?"

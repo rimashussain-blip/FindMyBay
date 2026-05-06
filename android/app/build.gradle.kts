@@ -41,8 +41,32 @@ android {
         // API base URL exposed as BuildConfig.API_BASE_URL
         buildConfigField("String", "API_BASE_URL", "\"${prop("API_BASE_URL", "https://api.findmybay.ae/")}\"")
 
+        // Google Sign-In: the Web OAuth client ID auto-created by Firebase
+        // when you register the Android app. Same value backs the backend's
+        // GOOGLE_OAUTH_CLIENT_ID env. Empty value disables the Google button.
+        buildConfigField("String", "GOOGLE_OAUTH_CLIENT_ID", "\"${prop("GOOGLE_OAUTH_CLIENT_ID", "")}\"")
+
         // We set vectorDrawables.useSupportLibrary explicitly so older OEMs render correctly.
         vectorDrawables.useSupportLibrary = true
+    }
+
+    // Release signing pulls the keystore + passwords from local.properties so
+    // we never check secrets into git. If RELEASE_KEYSTORE_FILE is missing
+    // (e.g. on a fresh clone or CI without secrets), `assembleRelease` will
+    // produce an unsigned APK — Gradle prints a warning, the build doesn't
+    // fail. Run android/scripts/setup-release-signing.ps1 once to provision
+    // the keystore.
+    val releaseKeystoreFile = prop("RELEASE_KEYSTORE_FILE", "")
+    val haveReleaseSigning = releaseKeystoreFile.isNotEmpty() && file(releaseKeystoreFile).exists()
+    if (haveReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(releaseKeystoreFile)
+                storePassword = prop("RELEASE_KEYSTORE_PASSWORD", "")
+                keyAlias = prop("RELEASE_KEY_ALIAS", "")
+                keyPassword = prop("RELEASE_KEY_PASSWORD", "")
+            }
+        }
     }
 
     buildTypes {
@@ -50,11 +74,21 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+            // Dev install gets its own launcher label so it's visually distinct
+            // from the production app on the same device. Both APKs can coexist
+            // because applicationId differs (.debug suffix).
+            resValue("string", "app_name", "FMB Dev")
+            buildConfigField("Boolean", "IS_DEV_BUILD", "true")
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            resValue("string", "app_name", "Find My Bay")
+            buildConfigField("Boolean", "IS_DEV_BUILD", "false")
+            if (haveReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
@@ -122,6 +156,9 @@ dependencies {
     implementation(libs.play.services.maps)
     implementation(libs.play.services.location)
     implementation(libs.maps.compose)
+
+    // Google Sign-In — gives us a Google ID token that the backend verifies.
+    implementation(libs.play.services.auth)
 
     // Permissions helper
     implementation(libs.accompanist.permissions)

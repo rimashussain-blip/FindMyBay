@@ -28,15 +28,19 @@ import ae.findmybay.feature.bookings.MyBookingsScreen
 import ae.findmybay.feature.bookings.RateBookingScreen
 import ae.findmybay.feature.bookings.ShowQrScreen
 import ae.findmybay.feature.home.NearbyMapScreen
+import ae.findmybay.feature.onboarding.OnboardingScreen
 import ae.findmybay.feature.payment.ReviewPayScreen
 import ae.findmybay.feature.profile.ProfileScreen
+import ae.findmybay.feature.splash.SplashScreen
 import ae.findmybay.feature.stub.LoyaltyScreen
 import ae.findmybay.feature.vendor.VendorDetailScreen
 
 object Routes {
+    const val SPLASH = "splash"
     const val AUTH_GRAPH = "auth"
     const val PHONE = "phone"
     const val OTP_VERIFY = "otp/{phone}"
+    const val ONBOARDING = "onboarding"
     const val NEARBY = "nearby"
     const val VENDOR_DETAIL = "vendor/{vendorId}"
     const val SLOT_PICKER = "vendor/{vendorId}/slot-picker"
@@ -104,7 +108,28 @@ fun AppNav(initialDeepLink: AlertDeepLink? = null) {
         },
     ) { scaffoldPadding ->
         Box(modifier = Modifier.padding(scaffoldPadding)) {
-            NavHost(navController = nav, startDestination = Routes.AUTH_GRAPH) {
+            NavHost(navController = nav, startDestination = Routes.SPLASH) {
+
+                // ── Splash — branches to login / onboarding / map ────────
+                composable(Routes.SPLASH) {
+                    SplashScreen(
+                        onNeedsLogin = {
+                            nav.navigate(Routes.AUTH_GRAPH) {
+                                popUpTo(Routes.SPLASH) { inclusive = true }
+                            }
+                        },
+                        onNeedsOnboarding = {
+                            nav.navigate(Routes.ONBOARDING) {
+                                popUpTo(Routes.SPLASH) { inclusive = true }
+                            }
+                        },
+                        onSignedIn = {
+                            nav.navigate(Routes.NEARBY) {
+                                popUpTo(Routes.SPLASH) { inclusive = true }
+                            }
+                        },
+                    )
+                }
 
                 // ── Auth flow ────────────────────────────────────────────
                 navigation(startDestination = Routes.PHONE, route = Routes.AUTH_GRAPH) {
@@ -113,6 +138,29 @@ fun AppNav(initialDeepLink: AlertDeepLink? = null) {
                         PhoneOtpScreen(
                             vm = vm,
                             onOtpSent = { phone -> nav.navigate(Routes.otpVerify(phone)) },
+                            // Google Sign-In bypasses the OTP screen. Returning
+                            // customers (profile already complete) go straight
+                            // to the map; brand-new accounts go to onboarding
+                            // first so we capture mobile + car details.
+                            onGoogleVerified = {
+                                nav.navigate(Routes.NEARBY) {
+                                    popUpTo(Routes.AUTH_GRAPH) { inclusive = true }
+                                }
+                            },
+                            onNeedsOnboarding = {
+                                nav.navigate(Routes.ONBOARDING) {
+                                    popUpTo(Routes.AUTH_GRAPH) { inclusive = true }
+                                }
+                            },
+                        )
+                    }
+                    composable(Routes.ONBOARDING) {
+                        OnboardingScreen(
+                            onComplete = {
+                                nav.navigate(Routes.NEARBY) {
+                                    popUpTo(Routes.ONBOARDING) { inclusive = true }
+                                }
+                            },
                         )
                     }
                     composable(

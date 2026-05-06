@@ -31,6 +31,7 @@ data class BookingVendorDto(
     val brandName: String,
     val city: String,
     val emirate: String,
+    val logoUrl: String? = null,
 )
 
 @Serializable
@@ -51,7 +52,14 @@ data class BookingQrDto(
     val slotStart: String,
     val status: String,
     val vendorName: String? = null,
+    val vendorLogoUrl: String? = null,
     val bayName: String? = null,
+    // Customer car details — shown on the QR screen so the attendant
+    // immediately sees which car they should expect at the bay.
+    val carMake: String? = null,
+    val carType: String? = null,
+    val carColor: String? = null,
+    val carPlate: String? = null,
 )
 
 @Serializable

@@ -17,6 +17,7 @@ datastore = "1.1.1"
 maps = "19.0.0"
 mapsCompose = "6.1.0"
 playServicesLocation = "21.3.0"
+playServicesAuth = "21.2.0"
 firebaseBom = "33.4.0"
 googleServicesPlugin = "4.4.2"
 accompanistPermissions = "0.36.0"
@@ -64,6 +65,7 @@ kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "ko
 
 play-services-maps = { group = "com.google.android.gms", name = "play-services-maps", version.ref = "maps" }
 play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
 maps-compose = { group = "com.google.maps.android", name = "maps-compose", version.ref = "mapsCompose" }
 
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }

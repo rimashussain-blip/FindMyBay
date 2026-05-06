@@ -54,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ae.findmybay.core.components.FmbPrimaryButton
+import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.FmbAqua
 import ae.findmybay.core.theme.FmbBlue100
 import ae.findmybay.core.theme.FmbBlue500
@@ -233,15 +234,12 @@ private fun VendorSummaryCard(b: Booking) {
             .padding(horizontal = 12.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(primaryCtaGradient()),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text("🚿", fontSize = 18.sp)
-            }
+            VendorLogo(
+                logoUrl = b.vendor.logoUrl,
+                brandName = b.vendor.brandName,
+                size = 40.dp,
+                shape = RoundedCornerShape(12.dp),
+            )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(

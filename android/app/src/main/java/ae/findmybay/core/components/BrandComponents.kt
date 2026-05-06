@@ -30,8 +30,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ae.findmybay.core.theme.FmbAqua
 import ae.findmybay.core.theme.FmbBlue300
 import ae.findmybay.core.theme.FmbBlue700
+import ae.findmybay.core.theme.FmbDeep
 import ae.findmybay.core.theme.FmbNeutral500
 import ae.findmybay.core.theme.primaryCtaGradient
 
@@ -125,10 +127,22 @@ fun FmbPrimaryButton(
     // call. Without remember, every recomposition (e.g. on each keystroke in
     // a parent text field) re-allocates and invalidates the .background
     // modifier, which compounds badly during keyboard animations.
-    val activeBrush = remember { primaryCtaGradient() }
-    val disabledBrush = remember {
+    //
+    // Pre-resolve theme tokens *outside* the remember lambda — Compose's
+    // remember body is non-Composable, so it can't read MaterialTheme.
+    val aqua = FmbAqua
+    val deep = FmbDeep
+    val neutral = FmbNeutral500
+    val activeBrush = remember(aqua, deep) {
         Brush.linearGradient(
-            listOf(FmbNeutral500.copy(alpha = 0.6f), FmbNeutral500.copy(alpha = 0.6f)),
+            colors = listOf(aqua, deep),
+            start = Offset(0f, 0f),
+            end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+        )
+    }
+    val disabledBrush = remember(neutral) {
+        Brush.linearGradient(
+            listOf(neutral.copy(alpha = 0.6f), neutral.copy(alpha = 0.6f)),
         )
     }
     val brush: Brush = if (disabled) disabledBrush else activeBrush

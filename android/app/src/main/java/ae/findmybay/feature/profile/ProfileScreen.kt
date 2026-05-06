@@ -24,7 +24,10 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Help
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.Pin
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PrivacyTip
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Shield
@@ -98,6 +101,35 @@ fun ProfileScreen(
                                     icon = Icons.Filled.Phone,
                                     label = "Email",
                                     value = state.profile!!.email!!,
+                                )
+                            }
+                        }
+
+                        // My car section — populated from the onboarding flow.
+                        // Shows up only once the customer has saved car details
+                        // so freshly-signed-up accounts don't see an empty card.
+                        val p = state.profile!!
+                        if (p.carMake != null || p.carType != null || p.carPlate != null) {
+                            Section(label = "My car") {
+                                InfoRow(
+                                    icon = Icons.Filled.DirectionsCar,
+                                    label = "Make & type",
+                                    value = listOfNotNull(
+                                        p.carMake,
+                                        p.carType?.display,
+                                    ).joinToString(" · ").ifEmpty { "Not set" },
+                                )
+                                if (!p.carColor.isNullOrBlank()) {
+                                    InfoRow(
+                                        icon = Icons.Filled.Palette,
+                                        label = "Colour",
+                                        value = p.carColor!!,
+                                    )
+                                }
+                                InfoRow(
+                                    icon = Icons.Filled.Pin,
+                                    label = "Plate",
+                                    value = p.carPlate ?: "Not set",
                                 )
                             }
                         }

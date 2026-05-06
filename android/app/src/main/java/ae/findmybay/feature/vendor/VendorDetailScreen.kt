@@ -45,6 +45,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ae.findmybay.core.components.Eyebrow
 import ae.findmybay.core.components.FmbPrimaryButton
+import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.FmbAmber500
 import ae.findmybay.core.theme.FmbBlue100
 import ae.findmybay.core.theme.FmbBlue500
@@ -147,6 +148,7 @@ private fun VendorBody(
 
 @Composable
 private fun HeroCard(v: VendorDetail, onBack: () -> Unit) {
+    val hasLogo = !v.logoUrl.isNullOrBlank()
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -196,12 +198,25 @@ private fun HeroCard(v: VendorDetail, onBack: () -> Unit) {
             Icon(Icons.Filled.FavoriteBorder, null, tint = FmbRed500, modifier = Modifier.size(16.dp))
         }
 
-        // Vendor glyph (bottom left)
-        Text(
-            "🚗",
-            fontSize = 36.sp,
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 14.dp),
-        )
+        // Vendor logo (bottom left) — falls back to a 🚗 glyph if the
+        // vendor hasn't uploaded a logo yet, so the hero card never feels empty.
+        if (hasLogo) {
+            VendorLogo(
+                logoUrl = v.logoUrl,
+                brandName = v.brandName,
+                size = 64.dp,
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 18.dp, bottom = 14.dp),
+            )
+        } else {
+            Text(
+                "🚗",
+                fontSize = 36.sp,
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 14.dp),
+            )
+        }
     }
 }
 

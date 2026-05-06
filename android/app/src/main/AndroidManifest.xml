@@ -91,6 +91,16 @@
                 tools:node="remove" />
         </provider>
 
+        <!-- Override WorkManager's foreground service to declare type=location.
+             AlertWindowWorker calls setForeground() with FOREGROUND_SERVICE_TYPE_LOCATION
+             so it can keep streaming GPS while the app is backgrounded; Android 14+
+             requires this type to be declared in the manifest or the service is
+             killed. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="location"
+            tools:node="merge" />
+
     </application>
 
 </manifest>

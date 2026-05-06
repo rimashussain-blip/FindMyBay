@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -30,19 +31,24 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ae.findmybay.core.components.FmbPrimaryButton
+import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.FmbBlue100
 import ae.findmybay.core.theme.FmbBlue300
 import ae.findmybay.core.theme.FmbBlue700
@@ -178,95 +184,75 @@ private fun StackedHaloCheck() {
 
 @Composable
 private fun ReceiptCard(b: Booking) {
+    // Position of the tear-line notches measured from the top of the card.
+    // Sits just below the vendor header so the receipt reads as
+    // "stub (vendor) ┄ tear ┄ details (services & total)".
+    val notchY = 78.dp
+    val notchRadius = 11.dp
+    val cornerRadius = 20.dp
+    val shape = rememberNotchedShape(
+        notchY = notchY,
+        notchRadius = notchRadius,
+        cornerRadius = cornerRadius,
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .border(1.dp, FmbMintEdge, shape)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
     ) {
         Column {
-            // Header row: thumbnail + vendor
+            // ── Stub: vendor header ─────────────────────────────────────────
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(FmbBlue100, FmbSand),
-                                start = Offset(0f, 0f),
-                                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                            )
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("🚿", fontSize = 18.sp)
-                }
-                Spacer(Modifier.width(10.dp))
+                VendorLogo(
+                    logoUrl = b.vendor.logoUrl,
+                    brandName = b.vendor.brandName,
+                    size = 40.dp,
+                    shape = RoundedCornerShape(12.dp),
+                )
+                Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
                         b.vendor.brandName,
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.2).sp,
                         color = FmbBlue900,
                     )
                     Text(
                         "${b.vendor.city}, ${b.vendor.emirate}",
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         color = FmbNeutral700,
                     )
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            // Spacer pushes content past the notch row so the dashed tear-line
+            // visually sits between the stub and the details.
+            Spacer(Modifier.height(20.dp))
 
-            // Tear line — dashed-look hairline with cream notches at the edges.
-            // The notches sit on top of the divider via a Box overlay.
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(FmbBlue900.copy(alpha = 0.08f))
-                        .align(Alignment.Center),
-                )
-                // Left notch
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .align(Alignment.CenterStart)
-                        .clip(CircleShape)
-                        .background(FmbCream)
-                        .wrapContentSize(unbounded = true)
-                        .size(16.dp),
-                )
-                // Right notch
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .align(Alignment.CenterEnd)
-                        .clip(CircleShape)
-                        .background(FmbCream),
-                )
-            }
+            // ── Tear line — hairline of dashes matching the notch position ──
+            DashedHairline()
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
+            // ── Details ─────────────────────────────────────────────────────
             ReceiptRow("Service", b.service.name)
             ReceiptRow("Bay", b.bay.name)
             ReceiptRow("Time", formatLocalDateTime(b.slotStart))
             ReceiptRow("Duration", "${b.service.durationMin} min")
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
                     .background(FmbBlue900.copy(alpha = 0.08f)),
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -274,18 +260,121 @@ private fun ReceiptCard(b: Booking) {
             ) {
                 Text(
                     "Total",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = FmbBlue900,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     "AED ${b.totalAed}",
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.3).sp,
                     color = FmbBlue700,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Hairline of evenly-spaced dashes — visually pairs with the side notches to
+ * read as a tear line on a receipt stub.
+ */
+@Composable
+private fun DashedHairline() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        repeat(28) {
+            Box(
+                modifier = Modifier
+                    .height(1.dp)
+                    .width(6.dp)
+                    .background(FmbBlue900.copy(alpha = 0.12f)),
+            )
+        }
+    }
+}
+
+/**
+ * Custom shape: a rounded-corner card with two semicircular notches cut into
+ * its left and right edges at [notchY] (measured from the top). Matches the
+ * "movie-ticket / receipt stub" silhouette on the Booking Confirmed screen.
+ */
+@Composable
+private fun rememberNotchedShape(
+    notchY: Dp,
+    notchRadius: Dp,
+    cornerRadius: Dp,
+) = with(LocalDensity.current) {
+    val notchYPx = notchY.toPx()
+    val notchRPx = notchRadius.toPx()
+    val cornerPx = cornerRadius.toPx()
+    remember(notchYPx, notchRPx, cornerPx) {
+        GenericShape { size, _ ->
+            val w = size.width
+            val h = size.height
+
+            // Top-left corner
+            moveTo(cornerPx, 0f)
+            // Top edge
+            lineTo(w - cornerPx, 0f)
+            // Top-right corner arc
+            arcTo(
+                rect = Rect(w - 2 * cornerPx, 0f, w, 2 * cornerPx),
+                startAngleDegrees = -90f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false,
+            )
+            // Right edge down to top of notch
+            lineTo(w, notchYPx - notchRPx)
+            // Right notch (semicircle bulging into the card)
+            arcTo(
+                rect = Rect(w - notchRPx, notchYPx - notchRPx, w + notchRPx, notchYPx + notchRPx),
+                startAngleDegrees = -90f,
+                sweepAngleDegrees = -180f,
+                forceMoveTo = false,
+            )
+            // Right edge to bottom-right corner
+            lineTo(w, h - cornerPx)
+            // Bottom-right corner arc
+            arcTo(
+                rect = Rect(w - 2 * cornerPx, h - 2 * cornerPx, w, h),
+                startAngleDegrees = 0f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false,
+            )
+            // Bottom edge
+            lineTo(cornerPx, h)
+            // Bottom-left corner arc
+            arcTo(
+                rect = Rect(0f, h - 2 * cornerPx, 2 * cornerPx, h),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false,
+            )
+            // Left edge up to bottom of notch
+            lineTo(0f, notchYPx + notchRPx)
+            // Left notch
+            arcTo(
+                rect = Rect(-notchRPx, notchYPx - notchRPx, notchRPx, notchYPx + notchRPx),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = -180f,
+                forceMoveTo = false,
+            )
+            // Left edge up to top-left corner
+            lineTo(0f, cornerPx)
+            // Top-left corner arc
+            arcTo(
+                rect = Rect(0f, 0f, 2 * cornerPx, 2 * cornerPx),
+                startAngleDegrees = 180f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false,
+            )
+            close()
         }
     }
 }
