@@ -86,6 +86,12 @@ export default function ScanCheckinPage() {
   function manualSubmit() {
     const v = manualInput.trim();
     if (!v) return;
+    // Clear stale state so an error or a different booking doesn't bleed
+    // through from the previous submit. If the new call succeeds, the
+    // mutation's onSuccess populates fresh `recent`; if it errors, only
+    // the error shows.
+    setRecent(null);
+    setError(null);
     if (v.startsWith('fmb://') || v.startsWith('FMB://')) {
       submit.mutate(v);
     } else {
@@ -215,8 +221,40 @@ function SuccessCard({ result }: { result: CheckinResult }) {
         </div>
         <div className="text-xs text-ink-soft">{b.customer.phone}</div>
       </div>
+
+      {/* Plate strip — always shown so the attendant knows whether the
+          customer added their car details. Falls back to a neutral notice
+          when null, prompting the customer to complete onboarding. */}
+      {b.customer.carPlate ? (
+        <div className="mt-3 rounded-xl bg-primary-deep px-4 py-3 text-white">
+          <div className="text-[10px] font-bold uppercase tracking-wider opacity-80">
+            Look for this car
+          </div>
+          <div className="mt-0.5 text-lg font-extrabold tracking-wider">
+            {b.customer.carPlate}
+          </div>
+          <div className="text-[11px] opacity-90">
+            {[b.customer.carColor, b.customer.carMake, b.customer.carType ? capitalize(b.customer.carType) : null]
+              .filter(Boolean)
+              .join(' · ') || '—'}
+          </div>
+        </div>
+      ) : (
+        <div className="mt-3 rounded-xl border border-dashed border-mint-edge bg-white px-4 py-3 text-xs text-ink-soft">
+          <div className="font-bold uppercase tracking-wider text-primary-deep">
+            No car details on file
+          </div>
+          <div className="mt-0.5">
+            Customer hasn't completed their car profile yet.
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 function CameraIcon() {

@@ -4,15 +4,19 @@ import { Layout } from './components/Layout';
 import { PlatformLayout } from './components/PlatformLayout';
 import { useAuth } from './store/auth';
 import LoginPage from './pages/LoginPage';
+import DashboardPage from './pages/DashboardPage';
 import BayBoardPage from './pages/BayBoardPage';
 import BookingsPage from './pages/BookingsPage';
 import BrandPage from './pages/BrandPage';
 import ServicesPage from './pages/ServicesPage';
 import ScanCheckinPage from './pages/ScanCheckinPage';
 import ReviewsPage from './pages/ReviewsPage';
+import WalkInPage from './pages/WalkInPage';
 import PlatformVendorsPage from './pages/PlatformVendorsPage';
 import PlatformNewVendorPage from './pages/PlatformNewVendorPage';
 import PlatformVendorDetailPage from './pages/PlatformVendorDetailPage';
+import PlatformUsersPage from './pages/PlatformUsersPage';
+import PlatformUserDetailPage from './pages/PlatformUserDetailPage';
 
 /** Require an auth token. Sends to /login otherwise. */
 function Protected({ children }: { children: React.ReactNode }) {
@@ -63,14 +67,16 @@ function VendorShell() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<Navigate to="/bays" replace />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/bays" element={<BayBoardPage />} />
         <Route path="/bookings" element={<BookingsPage />} />
+        <Route path="/walk-in" element={<WalkInPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/scan" element={<ScanCheckinPage />} />
         <Route path="/reviews" element={<ReviewsPage />} />
         <Route path="/brand" element={<BrandPage />} />
-        <Route path="*" element={<Navigate to="/bays" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Layout>
   );
@@ -89,6 +95,8 @@ function PlatformShell() {
         <Route path="vendors" element={<PlatformVendorsPage />} />
         <Route path="vendors/new" element={<PlatformNewVendorPage />} />
         <Route path="vendors/:id" element={<PlatformVendorDetailPage />} />
+        <Route path="users" element={<PlatformUsersPage />} />
+        <Route path="users/:id" element={<PlatformUserDetailPage />} />
         <Route path="*" element={<Navigate to="vendors" replace />} />
       </Routes>
     </PlatformLayout>

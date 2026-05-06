@@ -66,18 +66,14 @@ function Sidebar({
 
       {/* Nav */}
       <nav className="flex flex-col gap-1">
+        <NavItem to="/dashboard" label="Dashboard" icon="📊" />
         <NavItem to="/bays" label="Bay board" icon="🅱" />
         <NavItem to="/bookings" label="Bookings" icon="📅" />
+        <NavItem to="/walk-in" label="Walk-in" icon="🚶" />
         <NavItem to="/scan" label="Scan check-in" icon="📷" />
         <NavItem to="/services" label="Services" icon="✨" />
         <NavItem to="/reviews" label="Reviews" icon="⭐" />
         <NavItem to="/brand" label="Brand & branch" icon="🏷" />
-        <div className="pointer-events-none mt-2 flex items-center gap-3 rounded-full px-4 py-2.5 text-sm text-ink-soft opacity-50">
-          <span>📊</span> Analytics
-          <span className="ml-auto rounded-full bg-mint-edge px-2 py-0.5 text-[10px] font-medium">
-            soon
-          </span>
-        </div>
       </nav>
 
       <div className="mt-auto">

@@ -135,3 +135,65 @@ export const updatePlatformVendor = async (
   const { data } = await api.patch(`/admin/platform/vendors/${id}`, body);
   return data as PlatformVendorDetail;
 };
+
+// ── App users (super-admin only) ─────────────────────────────────────────
+
+export type CarType =
+  | 'sedan'
+  | 'hatchback'
+  | 'suv'
+  | 'pickup'
+  | 'van'
+  | 'coupe'
+  | 'other';
+
+export interface PlatformUser {
+  id: string;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  carMake: string | null;
+  carType: CarType | null;
+  carColor: string | null;
+  carPlate: string | null;
+  bookingCount: number;
+  profileComplete: boolean;
+  createdAt: string;
+}
+
+export interface PlatformUserListResponse {
+  total: number;
+  limit: number;
+  offset: number;
+  items: PlatformUser[];
+}
+
+export const listPlatformUsers = async (
+  params: { q?: string; limit?: number; offset?: number } = {},
+): Promise<PlatformUserListResponse> => {
+  const { data } = await api.get('/admin/platform/users', { params });
+  return data;
+};
+
+export interface PlatformUserBooking {
+  id: string;
+  status: string;
+  slotStart: string;
+  slotEnd: string;
+  totalAed: number;
+  vendor: { id: string; brandName: string; city: string };
+  service: { id: string; name: string };
+  createdAt: string;
+}
+
+export interface PlatformUserDetail extends PlatformUser {
+  lastLat: number | null;
+  lastLng: number | null;
+  lastLocationAt: string | null;
+  bookings: PlatformUserBooking[];
+}
+
+export const getPlatformUser = async (id: string): Promise<PlatformUserDetail> => {
+  const { data } = await api.get(`/admin/platform/users/${id}`);
+  return data;
+};

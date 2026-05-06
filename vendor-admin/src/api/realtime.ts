@@ -2,16 +2,18 @@
 // `bay:update` events for the signed-in vendor so the Bay Board reflects
 // QR check-ins (and manual flips from any other tab) without polling.
 //
-// We hit the dev proxy at /api so Vite forwards to the backend HTTP server,
-// which is the same server Socket.io is attached to.
+// In dev: hits Vite's proxy at /. In prod: VITE_API_BASE_URL points straight
+// at the backend host where Socket.io is attached.
 
 import { io, type Socket } from 'socket.io-client';
 
 let socket: Socket | null = null;
 
+const SOCKET_URL = import.meta.env.VITE_API_BASE_URL || '/';
+
 export function getRealtimeSocket(): Socket {
   if (!socket) {
-    socket = io('/', {
+    socket = io(SOCKET_URL, {
       path: '/socket.io', // matches default
       transports: ['websocket'],
       autoConnect: true,

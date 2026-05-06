@@ -15,6 +15,7 @@ import {
   type Emirate,
   type WeeklyHours,
 } from '../api/admin';
+import LogoUpload from '../components/LogoUpload';
 
 const EMIRATES: { value: Emirate; label: string }[] = [
   { value: 'AbuDhabi', label: 'Abu Dhabi' },
@@ -195,13 +196,11 @@ export default function BrandPage() {
             onChange={(e) => setForm((f) => f && { ...f, tradeLicenseNo: e.target.value })}
           />
         </Field>
-        <Field label="Logo URL" hint="A square PNG works best. File-upload is coming soon.">
-          <input
-            className="input"
+        <Field label="Logo">
+          <LogoUpload
             value={form.logoUrl}
             disabled={!canEdit}
-            placeholder="https://…/logo.png"
-            onChange={(e) => setForm((f) => f && { ...f, logoUrl: e.target.value })}
+            onChange={(next) => setForm((f) => f && { ...f, logoUrl: next })}
           />
         </Field>
       </Section>

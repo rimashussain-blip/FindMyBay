@@ -7,8 +7,8 @@ type Mode = 'login' | 'register';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('login');
-  const [email, setEmail] = useState('polaris@findmybay.ae');
-  const [password, setPassword] = useState('fmb-demo-2026');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,16 +164,6 @@ export default function LoginPage() {
                   : 'Create account'}
             </button>
 
-            {mode === 'login' && (
-              <div className="rounded-lg bg-mint px-3 py-2 text-[11px] text-primary-deep">
-                <strong className="font-bold">Demo accounts:</strong>{' '}
-                <code className="rounded bg-white px-1.5 py-0.5">polaris@findmybay.ae</code>
-                {' or '}
-                <code className="rounded bg-white px-1.5 py-0.5">marina@findmybay.ae</code>
-                {' · password '}
-                <code className="rounded bg-white px-1.5 py-0.5">fmb-demo-2026</code>
-              </div>
-            )}
           </div>
         </div>
 

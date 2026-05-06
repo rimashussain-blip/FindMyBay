@@ -45,6 +45,7 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
       <nav className="flex flex-col gap-1">
         <NavItem to="/platform/vendors" label="Vendors" icon="🏪" />
         <NavItem to="/platform/vendors/new" label="Onboard vendor" icon="➕" />
+        <NavItem to="/platform/users" label="App users" icon="👥" />
         <div className="pointer-events-none mt-2 flex items-center gap-3 rounded-full px-4 py-2.5 text-sm text-ink-soft opacity-50">
           <span>📊</span> Reports
           <span className="ml-auto rounded-full bg-mint-edge px-2 py-0.5 text-[10px] font-medium">
