@@ -22,7 +22,7 @@ import { generateRefreshToken, signAccessToken } from './jwt.js';
 
 let cachedClient: OAuth2Client | null = null;
 function getClient(): OAuth2Client {
-  if (!env.GOOGLE_OAUTH_CLIENT_ID) {
+  if (acceptedAudiences().length === 0) {
     throw new HttpError(501, 'Google Sign-In is not configured on this server', {
       code: 'google_disabled',
     });
@@ -31,8 +31,28 @@ function getClient(): OAuth2Client {
   return cachedClient;
 }
 
+/**
+ * The list of OAuth client IDs whose JWTs we trust. The token's `aud` claim
+ * must equal ONE of these. Falsy entries are filtered so unset env vars
+ * don't accidentally count as a wildcard.
+ *
+ * `GOOGLE_OAUTH_CLIENT_ID` is the canonical/primary audience (typically the
+ * Firebase auto-created Web client). The platform-specific vars carry the
+ * iOS / Android Sign-In SDK client IDs — those SDKs issue tokens whose
+ * `aud` is the platform's OAuth client ID, not the web one. See
+ * `google-auth-library`'s `verifyIdToken({audience: string|string[]})`.
+ */
+function acceptedAudiences(): string[] {
+  return [
+    env.GOOGLE_OAUTH_CLIENT_ID,
+    env.GOOGLE_OAUTH_CLIENT_ID_IOS,
+    env.GOOGLE_OAUTH_CLIENT_ID_ANDROID,
+    env.GOOGLE_OAUTH_CLIENT_ID_ANDROID_DEBUG,
+  ].filter((s): s is string => Boolean(s));
+}
+
 export interface GoogleLoginInput {
-  /** ID token from the Android client's GoogleSignInAccount.getIdToken(). */
+  /** ID token from the iOS / Android Sign-In SDK. */
   idToken: string;
 }
 
@@ -44,7 +64,7 @@ export async function loginWithGoogle(input: GoogleLoginInput) {
   try {
     const ticket = await client.verifyIdToken({
       idToken: input.idToken,
-      audience: env.GOOGLE_OAUTH_CLIENT_ID,
+      audience: acceptedAudiences(),
     });
     payload = ticket.getPayload();
   } catch (err) {

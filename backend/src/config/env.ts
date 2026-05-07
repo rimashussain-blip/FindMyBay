@@ -31,9 +31,18 @@ const schema = z.object({
   // can be set; if both, JSON wins.
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional().default(''),
   // Google Sign-In: the **Web** OAuth client ID from your Firebase / Google
-  // Cloud project. Required when /auth/google is enabled. Both the Android
-  // app and this backend must point at the same value.
+  // Cloud project. Required when /auth/google is enabled. This is the
+  // "primary" / canonical audience — typically the auto-created Firebase web
+  // client. Other accepted audiences live in the *_IOS / *_ANDROID_* vars
+  // below, all OR'd together when verifying ID tokens.
   GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(''),
+  // Additional audiences /auth/google should accept. When set, ID tokens
+  // whose `aud` claim matches ANY of these are valid. Lets one backend serve
+  // iOS + Android (release + debug) without per-platform handlers, and lets
+  // us roll over the primary client ID without downtime.
+  GOOGLE_OAUTH_CLIENT_ID_IOS: z.string().optional().default(''),
+  GOOGLE_OAUTH_CLIENT_ID_ANDROID: z.string().optional().default(''),
+  GOOGLE_OAUTH_CLIENT_ID_ANDROID_DEBUG: z.string().optional().default(''),
 
   // Payments. `mock` returns a local hosted page that lets us click
   // succeed/fail buttons without contacting any third party — good for dev
