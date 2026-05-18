@@ -30,6 +30,9 @@ class BookingRepository @Inject constructor(
             vendorName = it.vendorName,
             vendorLogoUrl = it.vendorLogoUrl,
             bayName = it.bayName,
+            invoiceNumber = it.invoiceNumber,
+            vatAed = it.vatAed,
+            totalAed = it.totalAed,
             carMake = it.carMake,
             carType = it.carType,
             carColor = it.carColor,
@@ -78,5 +81,7 @@ private fun ae.findmybay.data.api.dto.BookingDto.toDomain() = Booking(
     slotStart = slotStart,
     slotEnd = slotEnd,
     totalAed = totalAed,
+    vatAed = vatAed,
+    invoiceNumber = invoiceNumber,
     createdAt = createdAt,
 )

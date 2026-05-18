@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
@@ -191,10 +193,10 @@ fun PhoneOtpScreen(
 
             Spacer(Modifier.weight(1f))
 
-            // Terms footer
+            // Terms footer + "Made in U.A.E" brand badge
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(bottom = 32.dp),
+                modifier = Modifier.padding(bottom = 28.dp),
             ) {
                 Text(
                     "By continuing you agree to the",
@@ -216,6 +218,59 @@ fun PhoneOtpScreen(
                         fontWeight = FontWeight.Medium,
                     )
                 }
+                Spacer(Modifier.height(16.dp))
+                MadeInUaeBadge()
+            }
+        }
+    }
+}
+
+/**
+ * Brand badge from the design handoff ("Made in UAE Badge.html", compact
+ * "block letters · flag on the right" variant). Black banner with a tight
+ * MADE IN / U.A.E lockup on the left and the UAE flag (red bar + green/
+ * white/black tri-stripe) on the right. Self-contained — looks the same
+ * in light and dark mode.
+ */
+@Composable
+private fun MadeInUaeBadge() {
+    Row(
+        modifier = Modifier
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(5.dp))
+            .border(1.dp, Color.Black.copy(alpha = 0.10f), RoundedCornerShape(5.dp)),
+    ) {
+        // Black "MADE IN U.A.E" banner
+        Column(
+            modifier = Modifier
+                .background(Color.Black)
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                "MADE IN",
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 3.5.sp,
+                color = Color.White.copy(alpha = 0.6f),
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                "U.A.E",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 4.5.sp,
+                lineHeight = 18.sp,
+                color = Color.White,
+            )
+        }
+        // UAE flag — left red bar + green/white/black tri-stripe.
+        Row(modifier = Modifier.fillMaxHeight().width(42.dp)) {
+            Box(modifier = Modifier.fillMaxHeight().width(12.dp).background(Color(0xFFCE1126)))
+            Column(modifier = Modifier.fillMaxHeight().weight(1f)) {
+                Box(modifier = Modifier.fillMaxWidth().weight(1f).background(Color(0xFF00732F)))
+                Box(modifier = Modifier.fillMaxWidth().weight(1f).background(Color.White))
+                Box(modifier = Modifier.fillMaxWidth().weight(1f).background(Color.Black))
             }
         }
     }

@@ -28,11 +28,15 @@ fun logoGradient(): Brush = Brush.linearGradient(
 /**
  * "Leave now" hero gradient — deep aqua at the top fading to ink at the
  * bottom. Used as the full-bleed background on smart-leave alerts.
+ *
+ * Colors are intentionally hardcoded (not the theme-aware FmbDeep/FmbInk
+ * tokens) so the alert always reads as an urgent dark surface — its text
+ * is white and would disappear if the gradient flipped light in dark mode.
  */
 @Composable
 @ReadOnlyComposable
 fun heroGradient(): Brush = Brush.verticalGradient(
-    colors = listOf(FmbDeep, FmbInk),
+    colors = listOf(Color(0xFF0F766E), Color(0xFF0B3B36)),
 )
 
 /**

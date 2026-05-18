@@ -368,7 +368,9 @@ private fun FutureBookingCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
+            // Standard FMB card outline — same 1.5dp primary aqua as the
+            // active card above so every booking row reads consistently.
+            .border(1.5.dp, FmbBlue500, RoundedCornerShape(18.dp))
             .clickable(enabled = canRate, onClick = onRate)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -704,7 +706,7 @@ private fun formatHeader(iso: String): String {
         ?: return iso
     val today = java.time.LocalDate.now()
     val date = zoned.toLocalDate()
-    val time = zoned.format(DateTimeFormatter.ofPattern("HH:mm"))
+    val time = zoned.format(DateTimeFormatter.ofPattern("h:mm a"))
     return when (date) {
         today -> "Today · $time"
         today.plusDays(1) -> "Tomorrow · $time"

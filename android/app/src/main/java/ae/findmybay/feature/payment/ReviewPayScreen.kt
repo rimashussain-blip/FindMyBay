@@ -230,7 +230,8 @@ private fun VendorSummaryCard(b: Booking) {
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(16.dp))
+            // Standard FMB card outline (1.5dp primary aqua).
+            .border(1.5.dp, FmbBlue500, RoundedCornerShape(16.dp))
             .padding(horizontal = 12.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -673,10 +674,10 @@ private fun PayBar(
 // Helpers
 // ────────────────────────────────────────────────────────────────────────
 
-private val TIME_FMT = DateTimeFormatter.ofPattern("HH:mm")
+private val TIME_FMT = DateTimeFormatter.ofPattern("h:mm a")
 private val DAY_FMT = DateTimeFormatter.ofPattern("EEE d MMM")
 
-/** "Today 10:00", "Tomorrow 14:30", or "Wed 30 Apr 09:00". */
+/** "Today 10:00 AM", "Tomorrow 2:30 PM", or "Wed 30 Apr 9:00 AM". */
 private fun formatRelative(iso: String): String = runCatching {
     val zdt = OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault())
     val today = LocalDate.now()

@@ -68,6 +68,10 @@ data class BookingQr(
     val vendorName: String? = null,
     val vendorLogoUrl: String? = null,
     val bayName: String? = null,
+    /** FTA-compliant tax invoice number, null until payment cleared. */
+    val invoiceNumber: String? = null,
+    val vatAed: Int = 0,
+    val totalAed: Int = 0,
     /** Customer's car make ("Toyota") — shown on the QR screen for the attendant. */
     val carMake: String? = null,
     /** Customer's car type ("suv" / "sedan" / etc.) — surface as enum on the client. */
@@ -95,6 +99,10 @@ data class Booking(
     val slotStart: String,
     val slotEnd: String,
     val totalAed: Int,
+    /** VAT component of [totalAed] in whole AED. 0 if VAT wasn't billed. */
+    val vatAed: Int = 0,
+    /** FTA-compliant invoice number, null while the booking is still pending payment. */
+    val invoiceNumber: String? = null,
     val createdAt: String,
 )
 

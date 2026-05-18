@@ -143,6 +143,9 @@ fun ShowQrScreen(
                     vendorLogoUrl = state.qr!!.vendorLogoUrl,
                     bayName = state.qr!!.bayName,
                     slotStartIso = state.qr!!.slotStart,
+                    invoiceNumber = state.qr!!.invoiceNumber,
+                    vatAed = state.qr!!.vatAed,
+                    totalAed = state.qr!!.totalAed,
                     carPlate = state.qr!!.carPlate,
                     carDescription = listOfNotNull(
                         state.qr!!.carColor,
@@ -164,6 +167,9 @@ private fun QrBody(
     vendorLogoUrl: String?,
     bayName: String?,
     slotStartIso: String,
+    invoiceNumber: String?,
+    vatAed: Int,
+    totalAed: Int,
     carPlate: String?,
     carDescription: String?,
 ) {
@@ -206,11 +212,13 @@ private fun QrBody(
                 shape = RoundedCornerShape(8.dp),
             )
             Spacer(Modifier.width(8.dp))
+            // Hardcoded dark ink: the pill background above is fixed Color.White
+            // in both themes, so the text must stay dark to remain readable.
             Text(
                 chipText,
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Medium,
-                color = cs.onSurface,
+                color = Color(0xFF0B3B36),
             )
         }
 
@@ -262,6 +270,15 @@ private fun QrBody(
         WaitingForScanPill()
 
         Spacer(Modifier.height(16.dp))
+
+        // FTA invoice line — surfaced underneath the scan pill so the
+        // customer can quote it to the attendant if asked, without it
+        // competing with the QR for visual priority. Hidden until payment
+        // clears (invoiceNumber stays null in pending_payment).
+        if (!invoiceNumber.isNullOrBlank()) {
+            InvoiceLine(invoiceNumber = invoiceNumber, vatAed = vatAed, totalAed = totalAed)
+            Spacer(Modifier.height(16.dp))
+        }
 
         // Plate card — shows the customer's car details so the attendant
         // can verify the right car at a glance after scanning. Hidden when
@@ -448,7 +465,12 @@ private fun BrandedQrCard(
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
-    val ink = cs.onBackground
+    // The QR card surface is always white so the QR stays high-contrast and
+    // scannable in either theme. Text + module colors are pinned to dark
+    // ink/neutral for the same reason — theme tokens would flip light in
+    // dark mode and make these unreadable / the QR unscannable.
+    val ink = Color(0xFF0B3B36)
+    val inkSoft = Color(0xFF3F6B65)
     val primary = cs.primary
 
     Surface(
@@ -485,7 +507,7 @@ private fun BrandedQrCard(
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 2.sp,
-                color = cs.onSurfaceVariant,
+                color = inkSoft,
             )
             Spacer(Modifier.height(4.dp))
             Text(
@@ -525,7 +547,10 @@ private fun CornerBrackets(color: Color) {
 @Composable
 private fun BrandedQrCanvas(qrString: String, modifier: Modifier = Modifier) {
     val cs = MaterialTheme.colorScheme
-    val moduleColor = cs.onSurface
+    // QR modules must always be dark ink on the white card surface — using
+    // cs.onSurface flips the modules light in dark mode and the QR becomes
+    // unscannable (a real shipping bug, not just a cosmetic one).
+    val moduleColor = Color(0xFF0B3B36)
     val white = Color.White
     val primary = cs.primary
 
@@ -698,13 +723,65 @@ private fun CheckedInBody(modifier: Modifier = Modifier) {
 private fun shortCode(bookingId: String): String =
     bookingId.takeLast(4).uppercase()
 
-/** "2026-04-27T10:00:00.000Z" → "10:00" (24h, local zone). Returns null if unparsable. */
+/** "2026-04-27T10:00:00.000Z" → "10:00 AM" (12h, local zone). Returns null if unparsable. */
 private fun formatSlotTime(iso: String): String? = runCatching {
     val instant = java.time.Instant.parse(iso)
     val local = instant.atZone(java.time.ZoneId.systemDefault())
-    val fmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+    val fmt = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
     local.format(fmt)
 }.getOrNull()
+
+/**
+ * Small FTA-invoice strip rendered under the "waiting for scan" pill on
+ * the QR screen. Pairs an invoice number with the VAT/total line so the
+ * customer can quote either if asked.
+ */
+@Composable
+private fun InvoiceLine(invoiceNumber: String, vatAed: Int, totalAed: Int) {
+    val cs = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, cs.outlineVariant, RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "TAX INVOICE",
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.2.sp,
+                color = cs.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                invoiceNumber,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                color = cs.onBackground,
+            )
+        }
+        if (totalAed > 0) {
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "AED $totalAed",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = cs.primary,
+                )
+                if (vatAed > 0) {
+                    Text(
+                        "incl. AED $vatAed VAT",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = cs.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
 
 /**
  * Plate-styled card on the QR screen: deep teal pill with the plate in a

@@ -9,19 +9,26 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.animation.animateContentSize
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
@@ -36,7 +43,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -251,29 +260,36 @@ fun NearbyMapScreen(
                         }
                     }
                 }
+
             }
 
-            // ── Vendor card peek ────────────────────────────────────────────
-            // Use the filtered list so the peek card reflects the active
-            // filters / search. If filters wiped everything out, give the user
-            // a hint instead of a confusing empty space.
+            // ── Results panel ──────────────────────────────────────────────
+            // Lives outside the map Box so the map and the panel read as two
+            // separate surfaces with a clean gap between them, rather than the
+            // panel floating over the map and clipping pins underneath.
             val visible = state.filteredVendors
+            val userLat = state.lat
+            val userLng = state.lng
             if (visible.isNotEmpty()) {
-                val featured = visible.first()
-                VendorPeekCard(
-                    vendor = featured,
-                    onClick = { onVendorClick(featured.id) },
-                    modifier = Modifier.padding(16.dp),
+                NearbyResultsSheet(
+                    vendors = visible,
+                    userLat = userLat,
+                    userLng = userLng,
+                    onVendorClick = onVendorClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .heightIn(max = 280.dp),
                 )
             } else if (state.vendors.isNotEmpty()) {
-                // Vendors loaded, but every one was filtered out.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                         .clip(RoundedCornerShape(18.dp))
                         .background(MaterialTheme.colorScheme.surface)
-                        .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
+                        // Standard FMB card outline (1.5dp primary aqua).
+                        .border(1.5.dp, FmbBlue500, RoundedCornerShape(18.dp))
                         .padding(14.dp),
                 ) {
                     Text(
@@ -282,8 +298,6 @@ fun NearbyMapScreen(
                         color = FmbNeutral700,
                     )
                 }
-            } else {
-                Spacer(Modifier.height(16.dp))
             }
         }
     }
@@ -410,57 +424,204 @@ private fun FilterChip(
     }
 }
 
+/**
+ * Floating bottom-sheet style results list. Collapses to show only the
+ * nearest available studio (or the nearest one overall if every bay is
+ * busy); tapping the header expands the panel into a scrollable list of
+ * all matches. Mirrors how Google Maps' search-results sheet behaves —
+ * compact by default, full-list-on-demand.
+ */
 @Composable
-private fun VendorPeekCard(
-    vendor: Vendor,
-    onClick: () -> Unit,
+private fun NearbyResultsSheet(
+    vendors: List<Vendor>,
+    userLat: Double?,
+    userLng: Double?,
+    onVendorClick: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    val cs = MaterialTheme.colorScheme
+    var expanded by remember { mutableStateOf(false) }
+
+    // The "headline" pick when collapsed: prefer a studio with at least one
+    // free bay, fall back to the absolute nearest if every studio is busy.
+    // The list arrives already sorted by distance from the backend so we
+    // can scan front-to-back without re-sorting.
+    val headline = remember(vendors) {
+        vendors.firstOrNull { it.freeBays > 0 } ?: vendors.first()
+    }
+
+    Column(
         modifier = modifier
+            .clip(RoundedCornerShape(22.dp))
+            .background(cs.surface)
+            // Standard FMB card outline (1.5dp primary aqua).
+            .border(1.5.dp, FmbBlue500, RoundedCornerShape(22.dp))
+            .animateContentSize(),
+    ) {
+        // Tap target for the whole header strip — drag-handle, count, and
+        // hint all live in one clickable row so the affordance is obvious.
+        // The mint→sand gradient header mirrors the active-booking card on
+        // the My Bookings screen, keeping a consistent "card has a warm
+        // strip up top" pattern across the customer app.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(FmbBlue100, FmbSand),
+                        start = Offset(0f, 0f),
+                        end = Offset(Float.POSITIVE_INFINITY, 0f),
+                    )
+                )
+                .clickable { expanded = !expanded },
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(FmbMintEdge),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "${vendors.size} ${if (vendors.size == 1) "studio" else "studios"} near you",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = FmbBlue900,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    if (expanded) "Tap to collapse" else "Tap to view all",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = FmbNeutral700,
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.KeyboardArrowUp
+                                  else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = if (expanded) "Collapse list" else "Expand list",
+                    tint = FmbNeutral700,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        }
+
+        if (expanded) {
+            // Full scrollable list. Capped via the parent's heightIn so the
+            // map stays visible; users scroll inside the sheet for the rest.
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+            ) {
+                items(vendors, key = { it.id }) { v ->
+                    VendorListRow(
+                        vendor = v,
+                        userLat = userLat,
+                        userLng = userLng,
+                        onClick = { onVendorClick(v.id) },
+                    )
+                }
+            }
+        } else {
+            // Collapsed peek — just the headline pick. A LazyColumn isn't
+            // needed here, and not using one keeps the sheet's vertical
+            // height tight (no scroll-pad overhead).
+            Box(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
+                VendorListRow(
+                    vendor = headline,
+                    userLat = userLat,
+                    userLng = userLng,
+                    onClick = { onVendorClick(headline.id) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun VendorListRow(
+    vendor: Vendor,
+    userLat: Double?,
+    userLng: Double?,
+    onClick: () -> Unit,
+) {
+    val km = vendor.distanceMeters / 1000.0
+    val travel = estimateTravelMinutes(vendor.distanceMeters)
+    Row(
+        modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
-            .padding(14.dp),
+            .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Vendor logo thumbnail — falls back to brand initial if there's no
-        // uploaded logo yet, so cards always have a coherent left-edge anchor.
         VendorLogo(
             logoUrl = vendor.logoUrl,
             brandName = vendor.brandName,
-            size = 48.dp,
-            shape = RoundedCornerShape(14.dp),
+            size = 44.dp,
+            shape = RoundedCornerShape(12.dp),
         )
-        Spacer(Modifier.width(12.dp))
-
+        Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(vendor.brandName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = FmbBlue900)
+                Text(
+                    vendor.brandName,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = FmbBlue900,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
                 if (vendor.rating != null) {
                     Spacer(Modifier.width(6.dp))
                     Icon(Icons.Filled.Star, null, tint = FmbAmber500, modifier = Modifier.size(10.dp))
                     Spacer(Modifier.width(2.dp))
-                    Text("%.1f".format(vendor.rating), fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = FmbNeutral700)
+                    Text(
+                        "%.1f".format(vendor.rating),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = FmbNeutral700,
+                    )
                 }
             }
             Spacer(Modifier.height(2.dp))
+            // Distance + travel time. The "—" prefix on the suffix avoids
+            // rendering "0.0 km · ~0 min" for a customer who's standing on
+            // top of the studio.
+            val suffix = buildString {
+                append("${vendor.city} · ${"%.1f".format(km)} km")
+                if (userLat != null && userLng != null) {
+                    append(" · ")
+                    append(travel)
+                }
+            }
             Text(
-                "${vendor.city} · ${(vendor.distanceMeters / 1000).format1()} km",
+                suffix,
                 fontSize = 11.sp,
                 color = FmbNeutral700,
+                maxLines = 1,
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(5.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(6.dp))
                         .background(FmbBlue100)
-                        .padding(horizontal = 8.dp, vertical = 3.dp),
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
                 ) {
-                    Text("${vendor.freeBays} free now", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = FmbBlue700)
+                    Text(
+                        "${vendor.freeBays} free now",
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = FmbBlue700,
+                    )
                 }
                 Spacer(Modifier.width(6.dp))
                 Text(
@@ -471,6 +632,22 @@ private fun VendorPeekCard(
                 )
             }
         }
+    }
+}
+
+/**
+ * Quick travel-time estimate for the floating sheet. UAE-city average of
+ * ~32 km/h (signals, school zones, summer-afternoon traffic) — close enough
+ * for "is this worth driving to?" at-a-glance. The proper Distance Matrix
+ * lookup runs server-side as part of the smart-leave alert; we don't burn
+ * an API call per row on a passive list view.
+ */
+private fun estimateTravelMinutes(distanceMeters: Double): String {
+    val minutes = (distanceMeters / 1000.0 / 32.0 * 60.0).toInt()
+    return when {
+        minutes < 1 -> "<1 min"
+        minutes < 60 -> "~$minutes min"
+        else -> "~${minutes / 60}h ${minutes % 60}m"
     }
 }
 

@@ -257,7 +257,8 @@ private fun LiveBayStatusCard(bays: List<Bay>) {
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
+            // Standard FMB card outline (1.5dp primary aqua).
+            .border(1.5.dp, FmbBlue500, RoundedCornerShape(18.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Column {

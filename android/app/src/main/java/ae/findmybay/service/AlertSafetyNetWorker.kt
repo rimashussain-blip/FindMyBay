@@ -136,6 +136,11 @@ private fun postLocalNotification(
         .setCategory(NotificationCompat.CATEGORY_REMINDER)
         .setAutoCancel(true)
         .setContentIntent(pi)
+        // Match the FCM path's full-screen takeover so a delayed safety-net
+        // fire still grabs the customer's attention. Android shows it like
+        // an incoming-call screen when the device is locked, and as a
+        // heads-up notification otherwise.
+        .setFullScreenIntent(pi, true)
         .build()
 
     nm.notify(bookingId.hashCode(), notif)

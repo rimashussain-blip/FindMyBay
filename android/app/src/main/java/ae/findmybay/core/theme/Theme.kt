@@ -1,6 +1,5 @@
 package ae.findmybay.core.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -81,9 +80,18 @@ private val DarkColors = darkColorScheme(
     inversePrimary = Color(0xFF0F766E),
 )
 
+/**
+ * Per the brand handoff (`design_handoff_find_my_bay/Find My Bay.html`)
+ * the customer app is locked to the warm cream/aqua light palette — the
+ * brand's "welcoming and warm" direction relies on the cream background +
+ * sand accents, which lose meaning in a dark surface. We keep the
+ * [DarkColors] scheme + [darkTheme] override around so individual screens
+ * (e.g. the deep-aqua Smart Leave Alert) can opt into a dark surface, but
+ * the default for every entry point is light.
+ */
 @Composable
 fun FindMyBayTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colors = if (darkTheme) DarkColors else LightColors

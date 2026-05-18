@@ -1,7 +1,14 @@
 package ae.findmybay.feature.booking
 
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -30,8 +38,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,6 +50,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -46,11 +58,15 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ae.findmybay.core.components.FmbPrimaryButton
 import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.FmbBlue100
 import ae.findmybay.core.theme.FmbBlue300
+import ae.findmybay.core.theme.FmbBlue500
 import ae.findmybay.core.theme.FmbBlue700
 import ae.findmybay.core.theme.FmbBlue900
 import ae.findmybay.core.theme.FmbCream
@@ -115,7 +131,10 @@ private fun ConfirmedBody(b: Booking, onDone: () -> Unit) {
             modifier = Modifier.padding(horizontal = 12.dp),
         )
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(16.dp))
+        FullScreenAlertNudge()
+
+        Spacer(Modifier.height(16.dp))
         ReceiptCard(b)
 
         Spacer(Modifier.height(16.dp))
@@ -140,6 +159,95 @@ private fun ConfirmedBody(b: Booking, onDone: () -> Unit) {
         FmbPrimaryButton(text = "Done", onClick = onDone)
 
         Spacer(Modifier.height(28.dp))
+    }
+}
+
+/**
+ * Banner that nudges the customer to grant USE_FULL_SCREEN_INTENT on
+ * Android 14+ (where Google moved the permission behind a manual grant for
+ * non-alarm-clock apps). Without it, the smart-leave alert silently falls
+ * back to a heads-up notification instead of taking over the screen.
+ *
+ * Auto-hides on:
+ *   - Android <14 (the permission is auto-granted)
+ *   - When canUseFullScreenIntent() returns true
+ *
+ * The grant happens in system Settings, so we re-check on ON_RESUME after
+ * the user returns from the deep-linked settings page.
+ */
+@Composable
+private fun FullScreenAlertNudge() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+    val context = LocalContext.current
+    val nm = remember(context) {
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    }
+    var granted by remember { mutableStateOf(nm.canUseFullScreenIntent()) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                granted = nm.canUseFullScreenIntent()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (granted) return
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(FmbBlue100)
+            // Standard FMB card outline (1.5dp primary aqua).
+            .border(1.5.dp, FmbBlue500, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.NotificationsActive,
+            contentDescription = null,
+            tint = FmbBlue700,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "Wake-the-phone alert",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = FmbBlue900,
+            )
+            Text(
+                "Let the leave-now reminder take over your screen even when locked.",
+                fontSize = 11.sp,
+                color = FmbNeutral700,
+                lineHeight = 14.sp,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(FmbBlue700)
+                .clickable {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                        data = Uri.parse("package:" + context.packageName)
+                    }
+                    context.startActivity(intent)
+                }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        ) {
+            Text(
+                "Allow",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+            )
+        }
     }
 }
 
@@ -201,7 +309,9 @@ private fun ReceiptCard(b: Booking) {
             .fillMaxWidth()
             .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, shape)
+            // Standard FMB card outline per the design handoff — 1.5dp primary
+            // aqua to unify every card surface across the app.
+            .border(1.5.dp, FmbBlue500, shape)
             .padding(horizontal = 18.dp, vertical = 14.dp),
     ) {
         Column {
@@ -244,6 +354,15 @@ private fun ReceiptCard(b: Booking) {
             ReceiptRow("Bay", b.bay.name)
             ReceiptRow("Time", formatLocalDateTime(b.slotStart))
             ReceiptRow("Duration", "${b.service.durationMin} min")
+            // FTA receipt lines — only surfaced once the booking has been
+            // assigned an invoice number (i.e. payment cleared). For walk-ins
+            // this lands on creation; for app bookings on payment success.
+            if (!b.invoiceNumber.isNullOrBlank()) {
+                ReceiptRow("Invoice", b.invoiceNumber)
+            }
+            if (b.vatAed > 0) {
+                ReceiptRow("VAT (5%)", "AED ${b.vatAed}")
+            }
 
             Spacer(Modifier.height(10.dp))
             Box(
@@ -414,7 +533,7 @@ private fun SecondaryButton(
     }
 }
 
-private val DT_FORMATTER = DateTimeFormatter.ofPattern("EEE d MMM · HH:mm")
+private val DT_FORMATTER = DateTimeFormatter.ofPattern("EEE d MMM · h:mm a")
 
 private fun formatLocalDateTime(iso: String): String =
     runCatching {

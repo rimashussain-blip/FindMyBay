@@ -379,7 +379,7 @@ private fun SmartLeavePromise() {
     }
 }
 
-private val SLOT_FORMATTER = DateTimeFormatter.ofPattern("HH:mm")
+private val SLOT_FORMATTER = DateTimeFormatter.ofPattern("h:mm a")
 
 private fun formatLocal(iso: String): String =
     runCatching {

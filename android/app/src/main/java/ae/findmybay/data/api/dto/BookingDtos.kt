@@ -19,6 +19,8 @@ data class BookingDto(
     val slotStart: String,
     val slotEnd: String,
     val totalAed: Int,
+    val vatAed: Int = 0,
+    val invoiceNumber: String? = null,
     val createdAt: String,
 )
 
@@ -54,6 +56,10 @@ data class BookingQrDto(
     val vendorName: String? = null,
     val vendorLogoUrl: String? = null,
     val bayName: String? = null,
+    /** FTA-compliant tax invoice number, null while pending payment. */
+    val invoiceNumber: String? = null,
+    val vatAed: Int = 0,
+    val totalAed: Int = 0,
     // Customer car details — shown on the QR screen so the attendant
     // immediately sees which car they should expect at the bay.
     val carMake: String? = null,
