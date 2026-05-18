@@ -17,6 +17,12 @@
     <!-- Push notifications (Android 13+) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Full-screen smart-leave alert — lets the "Leave now" notification
+         take over the screen like an incoming call. Android 14+ also gates
+         this at runtime; users may need to grant it manually in Settings
+         the first time. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+
     <!-- Wake-up for smart alerts -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
