@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!--
+    Find My Bay app icon. Pulled directly from the design handoff
+    (`Find My Bay.html` icon-row block) and scaled to 1024.
+      Background : radial aqua → deep teal, light from top-left
+      Sand glow  : radial sandDeep at bottom-right
+      Highlight  : top-left linear white-fade
+      Foreground : water-drop (white → mint vertical gradient) with "P"
+  -->
+  <defs>
+    <radialGradient id="bg" cx="30%" cy="0%" r="120%">
+      <stop offset="0%"   stop-color="#2DD4BF"/>
+      <stop offset="45%"  stop-color="#14B8A6"/>
+      <stop offset="100%" stop-color="#0F766E"/>
+    </radialGradient>
+    <radialGradient id="sand" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"  stop-color="#F5C77E" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#F5C77E" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="topshine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"  stop-color="#FFFFFF" stop-opacity="0.28"/>
+      <stop offset="35%" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="drop" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%"   stop-color="#FFFFFF"/>
+      <stop offset="100%" stop-color="#E6F7F4"/>
+    </linearGradient>
+    <!-- iOS app icon mask: 1024px square with 230.4px corner radius (22.5%) -->
+    <clipPath id="iconMask">
+      <rect x="0" y="0" width="1024" height="1024" rx="230.4" ry="230.4"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#iconMask)">
+    <!-- Aqua → deep teal background -->
+    <rect width="1024" height="1024" fill="url(#bg)"/>
+
+    <!-- Warm sand glow, bottom-right (matches handoff: 162/180 = 90% of icon) -->
+    <circle cx="716.8" cy="716.8" r="460.8" fill="url(#sand)"/>
+
+    <!-- Top-left specular highlight -->
+    <rect width="1024" height="1024" fill="url(#topshine)"/>
+
+    <!-- Water drop + "P" — design viewBox was 0..100, scale by 10.24 -->
+    <g transform="scale(10.24)">
+      <path d="M 50 22 C 50 22, 30 44, 30 60 C 30 71, 39 80, 50 80 C 61 80, 70 71, 70 60 C 70 44, 50 22, 50 22 Z"
+            fill="url(#drop)"/>
+      <text x="50" y="68" text-anchor="middle"
+            font-family="-apple-system, 'SF Pro Display', 'Helvetica Neue', system-ui"
+            font-weight="800" font-size="26" fill="#0F766E" letter-spacing="-1">P</text>
+      <circle cx="50" cy="36" r="2.4" fill="#0F766E" opacity="0.55"/>
+    </g>
+  </g>
+</svg>

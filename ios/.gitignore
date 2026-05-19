@@ -1,0 +1,24 @@
+# Xcode build output
+build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# Generated Xcode project (regenerate with `xcodegen`)
+FindMyBay.xcodeproj
+
+# SPM
+.swiftpm/
+.build/
+Package.resolved
+
+# CocoaPods (we don't use it but ignore just in case)
+Pods/
+Podfile.lock
+
+# macOS
+.DS_Store
+
+# Secrets — actual key values are NOT checked in
+Secrets.xcconfig
+GoogleService-Info.plist
