@@ -37,6 +37,11 @@ use local `docker build` + `docker push` after `az acr login`. See
   release SHA1): `AIzaSyDhzIzDD9AfxhIfVWskCjNSo1Qv59yPvOU`
 - **Release keystore SHA-1**:
   `6E:F8:B4:1C:45:A9:30:76:44:F0:C0:09:E2:FD:E0:9E:85:23:55:DE`
+- **Apple Developer Team ID** (iOS automatic signing): `42WB7VFUTD`
+- **Apple App IDs**: `ae.findmybay` (release) + `ae.findmybay.debug` (debug).
+  Both registered with **Sign In with Apple** + **Push Notifications**.
+  The `com.apple.developer.applesignin` entitlement lives at
+  `ios/FindMyBay/FindMyBay.entitlements`.
 
 ## Brand palette (single source of truth)
 
