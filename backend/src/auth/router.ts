@@ -8,8 +8,9 @@ import { prisma } from '../config/db.js';
 import { asyncHandler, HttpError } from '../lib/error.js';
 import { logger } from '../lib/logger.js';
 import { requireAuth } from './middleware.js';
-import { loginWithEmail, registerWithEmail, requestOtp, verifyOtp } from './service.js';
+import { loginWithEmail, refreshSession, registerWithEmail, requestOtp, verifyOtp } from './service.js';
 import { loginWithGoogle } from './google.js';
+import { loginWithApple } from './apple.js';
 
 export const authRouter = Router();
 
@@ -88,6 +89,49 @@ authRouter.post(
   asyncHandler(async (req, res) => {
     const body = googleBody.parse(req.body);
     const result = await loginWithGoogle(body);
+    res.json(result);
+  }),
+);
+
+// ── Sign in with Apple ────────────────────────────────────────────────────
+//
+// iOS clients send the identity token returned by
+// `ASAuthorizationAppleIDCredential`. The token is verified against Apple's
+// JWKS in `loginWithApple` and exchanged for our usual access/refresh pair.
+
+const appleBody = z.object({
+  // Apple identity tokens are JWTs roughly 800–1500 chars. 16KB is plenty.
+  idToken: z.string().min(50).max(16 * 1024),
+  // Raw nonce we generated client-side; Apple signs SHA-256 of it.
+  nonce: z.string().min(1).max(512).nullable().optional(),
+  // Apple only returns the user's name on the FIRST sign-in; the iOS app
+  // forwards it so we can persist it as the new user's fullName.
+  fullName: z.string().min(1).max(120).nullable().optional(),
+});
+
+authRouter.post(
+  '/apple',
+  asyncHandler(async (req, res) => {
+    const body = appleBody.parse(req.body);
+    const result = await loginWithApple(body);
+    res.json(result);
+  }),
+);
+
+// ── Refresh ──────────────────────────────────────────────────────────────
+//
+// Exchange a still-valid refresh token for a fresh access + refresh pair.
+// Single-use: the presented token is revoked and a new one is returned.
+
+const refreshBody = z.object({
+  refreshToken: z.string().min(1).max(2048),
+});
+
+authRouter.post(
+  '/refresh',
+  asyncHandler(async (req, res) => {
+    const { refreshToken } = refreshBody.parse(req.body);
+    const result = await refreshSession(refreshToken);
     res.json(result);
   }),
 );

@@ -36,6 +36,10 @@ model User {
   // Treated as the authoritative Google identity (email can change at Google's
   // end; sub is stable). Null for users who only use phone OTP or email/pwd.
   googleSub    String?  @unique @map("google_sub")
+  // Apple `sub` from the Sign-in-with-Apple ID token. Same identity-anchor
+  // model as googleSub — stable across email changes (Apple's Hide-My-Email
+  // rotation doesn't alter sub). Null for users who haven't used Apple.
+  appleSub     String?  @unique @map("apple_sub")
   role         Role     @default(customer)
   // Last-known device location, posted by the customer app while a booking
   // window is approaching. Used by the smart-alert worker to compute ETA

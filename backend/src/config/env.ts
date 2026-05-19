@@ -44,6 +44,12 @@ const schema = z.object({
   GOOGLE_OAUTH_CLIENT_ID_ANDROID: z.string().optional().default(''),
   GOOGLE_OAUTH_CLIENT_ID_ANDROID_DEBUG: z.string().optional().default(''),
 
+  // Sign in with Apple: the iOS app's bundle id is also the OAuth `aud`
+  // claim Apple signs into its identity tokens. We accept release and
+  // debug bundles. Leaving both unset disables /auth/apple (returns 501).
+  APPLE_BUNDLE_ID: z.string().optional().default(''),
+  APPLE_BUNDLE_ID_DEBUG: z.string().optional().default(''),
+
   // Payments. `mock` returns a local hosted page that lets us click
   // succeed/fail buttons without contacting any third party — good for dev
   // and CI. `telr` uses Telr's hosted-payment-page API.

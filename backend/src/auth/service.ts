@@ -9,7 +9,7 @@ import { prisma } from '../config/db.js';
 import { env, isDev } from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { HttpError } from '../lib/error.js';
-import { generateRefreshToken, signAccessToken } from './jwt.js';
+import { generateRefreshToken, hashRefreshToken, signAccessToken } from './jwt.js';
 
 const BCRYPT_ROUNDS = 10;
 // Magic code that auto-verifies any phone in dev. Saves chasing server logs
@@ -156,6 +156,52 @@ async function issueSession(userId: string, role: string) {
     data: { userId, tokenHash: refresh.hash, expiresAt: refresh.expiresAt },
   });
   return { accessToken, refreshToken: refresh.token };
+}
+
+/**
+ * Exchange a still-valid refresh token for a fresh access + refresh pair.
+ * Rotates the refresh token (revokes the old hash, issues a new one) so a
+ * leaked refresh token has a single-use lifetime.
+ *
+ * Returns 401 with a stable error code on every failure mode so the iOS /
+ * Android clients can decide whether to silently retry or sign-out the user.
+ */
+export async function refreshSession(presentedToken: string) {
+  const tokenHash = hashRefreshToken(presentedToken);
+  const stored = await prisma.refreshToken.findUnique({
+    where: { tokenHash },
+    include: { user: { select: { id: true, role: true } } },
+  });
+
+  if (!stored) {
+    throw new HttpError(401, 'Refresh token not recognised', { code: 'refresh_invalid' });
+  }
+  if (stored.revokedAt) {
+    throw new HttpError(401, 'Refresh token already used', { code: 'refresh_revoked' });
+  }
+  if (stored.expiresAt.getTime() < Date.now()) {
+    throw new HttpError(401, 'Refresh token expired', { code: 'refresh_expired' });
+  }
+
+  // Rotate: revoke old + issue new in a single transaction so a crash midway
+  // can't leave both versions valid.
+  const fresh = generateRefreshToken();
+  await prisma.$transaction([
+    prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() },
+    }),
+    prisma.refreshToken.create({
+      data: {
+        userId: stored.userId,
+        tokenHash: fresh.hash,
+        expiresAt: fresh.expiresAt,
+      },
+    }),
+  ]);
+
+  const accessToken = signAccessToken(stored.user.id, stored.user.role);
+  return { accessToken, refreshToken: fresh.token };
 }
 
 export async function registerWithEmail(input: {
