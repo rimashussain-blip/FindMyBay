@@ -115,6 +115,9 @@
   html.dark .how { background: var(--surface-2); }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; }
+  /* Reserve the scrollbar gutter so navigating between long / short pages
+     doesn't shift the centred content sideways. */
+  html { scrollbar-gutter: stable; }
   body {
     font-family: 'Plus Jakarta Sans', -apple-system, 'SF Pro Text', system-ui, sans-serif;
     background: var(--cream);
@@ -611,7 +614,7 @@
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
       <a class="nav-login" id="nav-login" href="https://blue-stone-0633dc703.7.azurestaticapps.net/login">Log in</a>
-      <a class="nav-cta" href="#cta">Get the app</a>
+      <a class="nav-cta" href="/download.html">Get the app</a>
     </div>
   </div>
 </nav>
@@ -1014,7 +1017,7 @@
       <h2>Ready for a fresh, clean car?</h2>
       <p>Find a studio near you, pick a bay, and let the wash come to your day instead of the other way around.</p>
       <div class="cta-row">
-        <a class="btn-primary" href="#">
+        <a class="btn-primary" href="/download.html">
           Get findMy Bay
           <svg width="18" height="18" viewBox="0 0 18 18"><path d="M5 9h8m0 0L9 5m4 4l-4 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </a>
