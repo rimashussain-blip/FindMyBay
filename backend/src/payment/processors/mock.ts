@@ -8,7 +8,13 @@
 
 import crypto from 'node:crypto';
 import { env } from '../../config/env.js';
-import type { CreateIntentInput, CreateIntentResult, PaymentProcessor } from './index.js';
+import type {
+  CreateIntentInput,
+  CreateIntentResult,
+  PaymentProcessor,
+  RefundIntentInput,
+  RefundIntentResult,
+} from './index.js';
 
 export class MockPaymentProcessor implements PaymentProcessor {
   readonly name = 'mock';
@@ -49,6 +55,16 @@ export class MockPaymentProcessor implements PaymentProcessor {
       succeeded: body.status === 'succeeded',
       externalRef: body.externalRef ?? `mock_${body.paymentRef}`,
       failureReason: body.failureReason,
+    };
+  }
+
+  async refund(input: RefundIntentInput): Promise<RefundIntentResult> {
+    // Mock always-succeeds. Returns a synthetic externalRef so the
+    // Refund row has something to point at for audit purposes — the
+    // real Telr ref would be the gateway's transaction id.
+    return {
+      refunded: true,
+      externalRef: `mock_refund_${input.refundRef}`,
     };
   }
 }

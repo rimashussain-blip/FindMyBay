@@ -201,7 +201,12 @@ private fun CheckoutContent(
         Spacer(Modifier.height(4.dp))
         VendorSummaryCard(booking)
         Spacer(Modifier.height(20.dp))
-        TotalBlock(amountAed = booking.totalAed)
+        TotalBlock(
+            amountAed = booking.totalAed,
+            discountAed = booking.discountAed,
+            promoCode = booking.promoCode,
+            serviceListPriceAed = booking.service.priceAed,
+        )
         Spacer(Modifier.height(20.dp))
         SectionEyebrow("PAY WITH", modifier = Modifier.padding(start = 22.dp))
         Spacer(Modifier.height(10.dp))
@@ -285,7 +290,12 @@ private fun HoldPill() {
 // ────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun TotalBlock(amountAed: Int) {
+private fun TotalBlock(
+    amountAed: Int,
+    discountAed: Int = 0,
+    promoCode: String? = null,
+    serviceListPriceAed: Int? = null,
+) {
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -321,6 +331,39 @@ private fun TotalBlock(amountAed: Int) {
                 color = FmbBlue900.copy(alpha = 0.55f),
                 modifier = Modifier.padding(top = 16.dp),
             )
+        }
+        // Promo line — shows the strikethrough original price + the
+        // applied code in a sand-bg pill. Only renders when a discount
+        // was actually applied at booking-create time.
+        if (discountAed > 0 && promoCode != null) {
+            Spacer(Modifier.height(6.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (serviceListPriceAed != null && serviceListPriceAed > amountAed) {
+                    Text(
+                        "AED $serviceListPriceAed",
+                        fontSize = 13.sp,
+                        color = FmbNeutral500,
+                        textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough,
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(FmbSand)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                ) {
+                    Text(
+                        "$promoCode · −AED $discountAed",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.4.sp,
+                        color = Color(0xFF7A4D12),
+                    )
+                }
+            }
         }
         Spacer(Modifier.height(2.dp))
         Text(

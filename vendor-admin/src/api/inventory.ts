@@ -121,3 +121,132 @@ export async function listLowStock(): Promise<{
   const { data } = await api.get('/admin/inventory/low-stock');
   return data;
 }
+
+// ── Service recipes (auto-deduct linking) ───────────────────────────────
+
+export interface RecipeItem {
+  productId: string;
+  productName: string;
+  unit: string;
+  category: ProductCategory;
+  stockQty: number;
+  qtyPerWash: number;
+}
+
+export async function getServiceRecipe(
+  serviceId: string,
+): Promise<{ serviceId: string; items: RecipeItem[] }> {
+  const { data } = await api.get(`/admin/services/${serviceId}/products`);
+  return data;
+}
+
+export async function putServiceRecipe(
+  serviceId: string,
+  items: Array<{ productId: string; qtyPerWash: number }>,
+): Promise<{ serviceId: string; count: number }> {
+  const { data } = await api.put(`/admin/services/${serviceId}/products`, { items });
+  return data;
+}
+
+// ── Suppliers ───────────────────────────────────────────────────────────
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contactName: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface SupplierBody {
+  name: string;
+  contactName?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  notes?: string | null;
+}
+
+export async function listSuppliers(): Promise<{ items: Supplier[] }> {
+  const { data } = await api.get('/admin/inventory/suppliers');
+  return data;
+}
+export async function createSupplier(body: SupplierBody): Promise<Supplier> {
+  const { data } = await api.post('/admin/inventory/suppliers', body);
+  return data;
+}
+export async function updateSupplier(id: string, body: Partial<SupplierBody>): Promise<Supplier> {
+  const { data } = await api.patch(`/admin/inventory/suppliers/${id}`, body);
+  return data;
+}
+export async function deleteSupplier(id: string): Promise<void> {
+  await api.delete(`/admin/inventory/suppliers/${id}`);
+}
+
+// ── Purchase orders ─────────────────────────────────────────────────────
+
+export type PoStatus = 'draft' | 'submitted' | 'received' | 'cancelled';
+
+export interface PoItem {
+  id: string;
+  productId: string;
+  productName: string;
+  unit: string;
+  qty: number;
+  unitCostAed: number;
+  lineTotalAed: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  reference: string;
+  status: PoStatus;
+  expectedAt: string | null;
+  receivedAt: string | null;
+  totalAed: number;
+  notes: string | null;
+  createdAt: string;
+  supplier: { id: string; name: string };
+  items: PoItem[];
+}
+
+export interface CreatePoBody {
+  supplierId: string;
+  expectedAt?: string | null;
+  notes?: string | null;
+  items: Array<{ productId: string; qty: number; unitCostAed: number }>;
+}
+
+export async function listPurchaseOrders(status?: PoStatus): Promise<{ items: PurchaseOrder[] }> {
+  const { data } = await api.get('/admin/inventory/purchase-orders', {
+    params: status ? { status } : {},
+  });
+  return data;
+}
+
+export async function createPurchaseOrder(body: CreatePoBody): Promise<PurchaseOrder> {
+  const { data } = await api.post('/admin/inventory/purchase-orders', body);
+  return data;
+}
+
+export async function updatePurchaseOrder(
+  id: string,
+  body: Partial<CreatePoBody>,
+): Promise<PurchaseOrder> {
+  const { data } = await api.patch(`/admin/inventory/purchase-orders/${id}`, body);
+  return data;
+}
+
+export async function submitPurchaseOrder(id: string): Promise<PurchaseOrder> {
+  const { data } = await api.post(`/admin/inventory/purchase-orders/${id}/submit`);
+  return data;
+}
+export async function receivePurchaseOrder(id: string): Promise<PurchaseOrder> {
+  const { data } = await api.post(`/admin/inventory/purchase-orders/${id}/receive`);
+  return data;
+}
+export async function cancelPurchaseOrder(id: string): Promise<PurchaseOrder> {
+  const { data } = await api.post(`/admin/inventory/purchase-orders/${id}/cancel`);
+  return data;
+}

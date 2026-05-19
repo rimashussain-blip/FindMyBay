@@ -101,6 +101,10 @@ data class Booking(
     val totalAed: Int,
     /** VAT component of [totalAed] in whole AED. 0 if VAT wasn't billed. */
     val vatAed: Int = 0,
+    /** AED discount applied via a promo code at booking-create time. 0 if none. */
+    val discountAed: Int = 0,
+    /** Code of the promo that was applied (e.g. "WELCOME10"). Null if none. */
+    val promoCode: String? = null,
     /** FTA-compliant invoice number, null while the booking is still pending payment. */
     val invoiceNumber: String? = null,
     val createdAt: String,

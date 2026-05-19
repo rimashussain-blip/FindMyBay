@@ -13,6 +13,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
+import crypto from 'node:crypto';
 import { asyncHandler, HttpError } from '../lib/error.js';
 import { prisma } from '../config/db.js';
 import { requireAuth } from '../auth/middleware.js';
@@ -20,6 +21,7 @@ import { requireVendor } from './middleware.js';
 import { UAE_VAT_RATE_PCT } from '../lib/vat.js';
 import { assignCreditNoteNumber } from '../lib/invoice.js';
 import { logger } from '../lib/logger.js';
+import { getPaymentProcessor } from '../payment/processors/index.js';
 
 export const financeRouter = Router();
 
@@ -538,6 +540,13 @@ financeRouter.post(
           where: { status: 'processed' },
           select: { amountAed: true },
         },
+        // Latest successful payment — drives the processor-side refund call.
+        payments: {
+          where: { status: 'succeeded' },
+          orderBy: { paidAt: 'desc' },
+          take: 1,
+          select: { processor: true, externalRef: true },
+        },
       },
     });
     if (!booking) {
@@ -563,6 +572,55 @@ financeRouter.post(
         ? Math.round((booking.vatAed * amountAed) / booking.totalAed)
         : 0;
 
+    // Generate a refund ref UP FRONT so the processor can echo it back
+    // in its metadata. The Refund row itself gets its own cuid below.
+    const refundRef = crypto.randomBytes(18).toString('base64url');
+
+    // Talk to the processor BEFORE writing the Refund row. If the
+    // processor fails we never persist anything — the route 4xx's and
+    // the owner sees the error. If the booking has no Payment row
+    // (e.g. walk-in cash, refunded by hand at the desk) we skip the
+    // processor call and record the Refund as out-of-band — same V1
+    // semantics, just no processor_ref on the row.
+    const payment = booking.payments[0] ?? null;
+    let processorRef: string | null = null;
+    if (payment && payment.externalRef) {
+      const processor = getPaymentProcessor();
+      // Only call the processor if its name matches the Payment's
+      // recorded processor — defensive guard against env swaps after
+      // the original charge.
+      if (processor.name === payment.processor) {
+        try {
+          const result = await processor.refund({
+            refundRef,
+            externalRef: payment.externalRef,
+            amountAed,
+            reason,
+          });
+          if (!result.refunded) {
+            throw new HttpError(
+              502,
+              result.message ?? 'Payment processor rejected the refund',
+              { code: 'processor_refund_failed' },
+            );
+          }
+          processorRef = result.externalRef ?? null;
+        } catch (err) {
+          if (err instanceof HttpError) throw err;
+          logger.error({ err, bookingId: booking.id }, 'processor refund threw');
+          throw new HttpError(502, 'Payment processor refund failed', {
+            code: 'processor_refund_failed',
+            details: { message: err instanceof Error ? err.message : String(err) },
+          });
+        }
+      } else {
+        logger.warn(
+          { paymentProcessor: payment.processor, currentProcessor: processor.name },
+          'refund called on a payment from a different processor — recording as out-of-band',
+        );
+      }
+    }
+
     const refund = await prisma.$transaction(async (tx) => {
       const creditNoteNumber = await assignCreditNoteNumber(tx, vendorId);
       return tx.refund.create({
@@ -574,6 +632,7 @@ financeRouter.post(
           reason,
           status: 'processed',
           creditNoteNumber,
+          processorRef,
           createdById: userId,
         },
       });
@@ -587,6 +646,7 @@ financeRouter.post(
         amountAed,
         vatShare,
         creditNoteNumber: refund.creditNoteNumber,
+        processorRef,
       },
       'refund recorded',
     );
@@ -598,6 +658,7 @@ financeRouter.post(
       vatAed: refund.vatAed,
       reason: refund.reason,
       status: String(refund.status),
+      processorRef: refund.processorRef,
       createdAt: refund.createdAt.toISOString(),
     });
   }),
@@ -690,3 +751,182 @@ financeRouter.post(
     return res.json({ id: updated.id, status: String(updated.status) });
   }),
 );
+
+// ── 5. Payouts ───────────────────────────────────────────────────────────
+//
+// A Payout is the platform's settlement to a vendor for a date range.
+// V1 owners trigger this manually:
+//   GET    /finance/payouts             — list closed periods
+//   POST   /finance/payouts/preview     — what would this period total?
+//   POST   /finance/payouts             — close the period + lock the totals
+//   POST   /finance/payouts/:id/mark-paid — flip to paid + capture bank ref
+//
+// Real money movement is off-platform. The row tracks "what we owe" and
+// "what's been paid" so the audit trail survives.
+
+const payoutPreviewBody = z.object({
+  periodStart: z.string().datetime(),
+  periodEnd: z.string().datetime(),
+});
+
+async function snapshotForPeriod(vendorId: string, from: Date, to: Date) {
+  const [grossAgg, refundAgg] = await Promise.all([
+    prisma.booking.aggregate({
+      where: {
+        vendorId,
+        status: 'completed',
+        slotStart: { gte: from, lte: to },
+      },
+      _sum: { totalAed: true, vatAed: true },
+      _count: { _all: true },
+    }),
+    prisma.refund.aggregate({
+      where: {
+        vendorId,
+        status: 'processed',
+        createdAt: { gte: from, lte: to },
+      },
+      _sum: { amountAed: true, vatAed: true },
+    }),
+  ]);
+  const grossAed = grossAgg._sum.totalAed ?? 0;
+  const vatCollectedAed = grossAgg._sum.vatAed ?? 0;
+  const refundsAed = refundAgg._sum.amountAed ?? 0;
+  const refundVatAed = refundAgg._sum.vatAed ?? 0;
+  const netVatAed = vatCollectedAed - refundVatAed;
+  const netAed = grossAed - refundsAed;
+  // V1 fees = 0; placeholder for when commission lands.
+  const feesAed = 0;
+  const netToVendorAed = netAed - netVatAed - feesAed;
+  return {
+    grossAed,
+    refundsAed,
+    vatAed: netVatAed,
+    feesAed,
+    netToVendorAed,
+    bookingCount: grossAgg._count._all,
+  };
+}
+
+financeRouter.post(
+  '/finance/payouts/preview',
+  requireAuth,
+  requireVendor(),
+  asyncHandler(async (req, res) => {
+    const { periodStart, periodEnd } = payoutPreviewBody.parse(req.body);
+    const snap = await snapshotForPeriod(req.vendor!.id, new Date(periodStart), new Date(periodEnd));
+    res.json({ periodStart, periodEnd, ...snap });
+  }),
+);
+
+financeRouter.post(
+  '/finance/payouts',
+  requireAuth,
+  requireVendor('owner'),
+  asyncHandler(async (req, res) => {
+    const body = payoutPreviewBody.extend({ notes: z.string().max(500).optional() }).parse(req.body);
+    const vendorId = req.vendor!.id;
+    const userId = req.user!.id;
+    const periodStart = new Date(body.periodStart);
+    const periodEnd = new Date(body.periodEnd);
+    if (periodEnd <= periodStart) {
+      throw new HttpError(400, 'periodEnd must be after periodStart', { code: 'bad_range' });
+    }
+    const snap = await snapshotForPeriod(vendorId, periodStart, periodEnd);
+    const created = await prisma.payout.create({
+      data: {
+        vendorId,
+        periodStart,
+        periodEnd,
+        ...snap,
+        notes: body.notes ?? null,
+        createdById: userId,
+      },
+    });
+    logger.info(
+      { payoutId: created.id, vendorId, netToVendorAed: snap.netToVendorAed },
+      'payout closed',
+    );
+    res.status(201).json(serializePayout(created));
+  }),
+);
+
+financeRouter.get(
+  '/finance/payouts',
+  requireAuth,
+  requireVendor(),
+  asyncHandler(async (req, res) => {
+    const vendorId = req.vendor!.id;
+    const rows = await prisma.payout.findMany({
+      where: { vendorId },
+      orderBy: { periodEnd: 'desc' },
+      take: 50,
+    });
+    res.json({ items: rows.map(serializePayout) });
+  }),
+);
+
+const markPaidBody = z.object({
+  paidExternalRef: z.string().trim().max(80).optional(),
+  paidAt: z.string().datetime().optional(),
+});
+
+financeRouter.post(
+  '/finance/payouts/:id/mark-paid',
+  requireAuth,
+  requireVendor('owner'),
+  asyncHandler(async (req, res) => {
+    const body = markPaidBody.parse(req.body);
+    const vendorId = req.vendor!.id;
+    const payout = await prisma.payout.findFirst({
+      where: { id: req.params.id, vendorId },
+    });
+    if (!payout) throw new HttpError(404, 'Payout not found', { code: 'not_found' });
+    if (payout.status === 'paid') {
+      return res.json({ ...serializePayout(payout), alreadyPaid: true });
+    }
+    const updated = await prisma.payout.update({
+      where: { id: payout.id },
+      data: {
+        status: 'paid',
+        paidAt: body.paidAt ? new Date(body.paidAt) : new Date(),
+        paidExternalRef: body.paidExternalRef ?? null,
+      },
+    });
+    return res.json(serializePayout(updated));
+  }),
+);
+
+function serializePayout(p: {
+  id: string;
+  periodStart: Date;
+  periodEnd: Date;
+  grossAed: number;
+  refundsAed: number;
+  vatAed: number;
+  feesAed: number;
+  netToVendorAed: number;
+  bookingCount: number;
+  status: string;
+  paidAt: Date | null;
+  paidExternalRef: string | null;
+  notes: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: p.id,
+    periodStart: p.periodStart.toISOString(),
+    periodEnd: p.periodEnd.toISOString(),
+    grossAed: p.grossAed,
+    refundsAed: p.refundsAed,
+    vatAed: p.vatAed,
+    feesAed: p.feesAed,
+    netToVendorAed: p.netToVendorAed,
+    bookingCount: p.bookingCount,
+    status: String(p.status),
+    paidAt: p.paidAt?.toISOString() ?? null,
+    paidExternalRef: p.paidExternalRef,
+    notes: p.notes,
+    createdAt: p.createdAt.toISOString(),
+  };
+}

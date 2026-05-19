@@ -197,3 +197,60 @@ export async function voidRefund(refundId: string) {
   const { data } = await api.post(`/admin/finance/refunds/${refundId}/void`);
   return data;
 }
+
+// ── Payouts ─────────────────────────────────────────────────────────────
+
+export interface Payout {
+  id: string;
+  periodStart: string;
+  periodEnd: string;
+  grossAed: number;
+  refundsAed: number;
+  vatAed: number;
+  feesAed: number;
+  netToVendorAed: number;
+  bookingCount: number;
+  status: 'pending' | 'paid';
+  paidAt: string | null;
+  paidExternalRef: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface PayoutPreview {
+  periodStart: string;
+  periodEnd: string;
+  grossAed: number;
+  refundsAed: number;
+  vatAed: number;
+  feesAed: number;
+  netToVendorAed: number;
+  bookingCount: number;
+}
+
+export async function listPayouts(): Promise<{ items: Payout[] }> {
+  const { data } = await api.get('/admin/finance/payouts');
+  return data;
+}
+
+export async function previewPayout(periodStart: string, periodEnd: string): Promise<PayoutPreview> {
+  const { data } = await api.post('/admin/finance/payouts/preview', { periodStart, periodEnd });
+  return data;
+}
+
+export async function closePayout(
+  periodStart: string,
+  periodEnd: string,
+  notes?: string,
+): Promise<Payout> {
+  const { data } = await api.post('/admin/finance/payouts', { periodStart, periodEnd, notes });
+  return data;
+}
+
+export async function markPayoutPaid(
+  id: string,
+  paidExternalRef?: string,
+): Promise<Payout> {
+  const { data } = await api.post(`/admin/finance/payouts/${id}/mark-paid`, { paidExternalRef });
+  return data;
+}

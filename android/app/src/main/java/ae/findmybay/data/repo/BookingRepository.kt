@@ -16,8 +16,20 @@ import javax.inject.Singleton
 class BookingRepository @Inject constructor(
     private val api: BookingApi,
 ) {
-    suspend fun create(vendorId: String, serviceId: String, slotStartIso: String): Booking =
-        api.create(CreateBookingBody(vendorId, serviceId, slotStartIso)).toDomain()
+    suspend fun create(
+        vendorId: String,
+        serviceId: String,
+        slotStartIso: String,
+        promoCode: String? = null,
+    ): Booking =
+        api.create(
+            CreateBookingBody(
+                vendorId = vendorId,
+                serviceId = serviceId,
+                slotStart = slotStartIso,
+                promoCode = promoCode?.trim()?.uppercase().takeIf { !it.isNullOrEmpty() },
+            ),
+        ).toDomain()
 
     suspend fun mine(): List<Booking> = api.mine().items.map { it.toDomain() }
 
@@ -82,6 +94,8 @@ private fun ae.findmybay.data.api.dto.BookingDto.toDomain() = Booking(
     slotEnd = slotEnd,
     totalAed = totalAed,
     vatAed = vatAed,
+    discountAed = discountAed,
+    promoCode = promoCode,
     invoiceNumber = invoiceNumber,
     createdAt = createdAt,
 )

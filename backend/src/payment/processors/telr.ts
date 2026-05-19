@@ -12,7 +12,13 @@
 // `order.check` endpoint with our store credentials — Telr does not sign
 // webhook payloads, so server-side re-verification is the canonical pattern.
 
-import type { CreateIntentInput, CreateIntentResult, PaymentProcessor } from './index.js';
+import type {
+  CreateIntentInput,
+  CreateIntentResult,
+  PaymentProcessor,
+  RefundIntentInput,
+  RefundIntentResult,
+} from './index.js';
 
 interface TelrConfig {
   storeId: string;
@@ -103,6 +109,55 @@ export class TelrPaymentProcessor implements PaymentProcessor {
       succeeded: status === 'A' || status === 'paid' || status === '3',
       externalRef: orderRef,
       failureReason: params.get('tran_message') ?? undefined,
+    };
+  }
+
+  /**
+   * Reverse a previously-succeeded charge via Telr's `refund` operation
+   * (gateway path: `order.json` with `ivp_method=refund` + `order_ref`).
+   * Telr supports partial refunds; we pass the AED amount as-is.
+   *
+   * Test mode (TELR_TEST_MODE=true) hits the sandbox endpoint where every
+   * refund auto-succeeds — gives us a real end-to-end path without
+   * needing a live gateway account.
+   */
+  async refund(input: RefundIntentInput): Promise<RefundIntentResult> {
+    if (!this.cfg.storeId || !this.cfg.authKey) {
+      throw new Error('Telr credentials not configured: set TELR_STORE_ID and TELR_AUTH_KEY');
+    }
+    const body = new URLSearchParams({
+      ivp_method: 'refund',
+      ivp_store: this.cfg.storeId,
+      ivp_authkey: this.cfg.authKey,
+      ivp_test: this.cfg.testMode ? '1' : '0',
+      order_ref: input.externalRef,
+      ivp_amount: input.amountAed.toFixed(2),
+      ivp_currency: 'AED',
+      ivp_desc: input.reason.slice(0, 120), // Telr caps description at ~127 chars
+      ivp_cart: input.refundRef,
+    });
+    const res = await fetch('https://secure.telr.com/gateway/order.json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    type TelrRefundResponse = {
+      order?: { ref: string; transaction?: { ref: string; status: string; message?: string } };
+      error?: { message: string };
+    };
+    const json = (await res.json()) as TelrRefundResponse;
+    if (!res.ok || json.error || !json.order) {
+      return {
+        refunded: false,
+        message: json.error?.message ?? `Telr refund failed (HTTP ${res.status})`,
+      };
+    }
+    const tx = json.order.transaction;
+    const txStatus = tx?.status;
+    return {
+      refunded: txStatus === 'A' || txStatus === 'paid',
+      externalRef: tx?.ref ?? json.order.ref,
+      message: tx?.message,
     };
   }
 

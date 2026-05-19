@@ -85,6 +85,7 @@ function Sidebar({
         <NavItem to="/promotions" label="Promotions" icon={<PromotionsIcon />} />
         <NavItem to="/finance" label="Finance" icon={<FinanceIcon />} />
         <NavItem to="/inventory" label="Inventory" icon={<InventoryIcon />} />
+        <NavItem to="/procurement" label="Procurement" icon={<ProcurementIcon />} />
         <NavItem to="/loyalty" label="Loyalty" icon={<LoyaltyIcon />} />
         <NavItem to="/staff" label="Staff" icon={<StaffIcon />} />
         <NavItem to="/reviews" label="Reviews" icon={<ReviewsIcon />} />
@@ -272,6 +273,18 @@ function PromotionsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" />
+    </svg>
+  );
+}
+
+function ProcurementIcon() {
+  // Truck / delivery glyph — suppliers + POs
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 3h15v13H1z" />
+      <path d="M16 8h4l3 3v5h-7" />
+      <circle cx="5.5" cy="18.5" r="2.5" />
+      <circle cx="18.5" cy="18.5" r="2.5" />
     </svg>
   );
 }

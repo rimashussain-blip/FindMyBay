@@ -22,6 +22,7 @@ import { prisma } from '../config/db.js';
 import { requireAuth } from '../auth/middleware.js';
 import { requireVendor } from './middleware.js';
 import { logger } from '../lib/logger.js';
+import { postStockChange } from '../lib/stock.js';
 
 export const inventoryRouter = Router();
 
@@ -385,5 +386,552 @@ function serializeMovement(m: {
     note: m.note,
     bookingId: m.bookingId,
     createdAt: m.createdAt.toISOString(),
+  };
+}
+
+// ── Service recipes (auto-deduct linking) ────────────────────────────────
+//
+// GET /admin/services/:id/products       — current recipe for a service
+// PUT /admin/services/:id/products       — replace the entire recipe (atomic
+//                                          delete + create so add/remove
+//                                          happens in one call)
+//
+// The booking-status route imports `autoDeductForBooking` from lib/stock.ts
+// which walks this recipe when status flips to 'completed'.
+
+const recipeBody = z.object({
+  items: z
+    .array(
+      z.object({
+        productId: z.string().min(1),
+        qtyPerWash: z.number().int().min(1).max(1000),
+      }),
+    )
+    .max(50),
+});
+
+inventoryRouter.get(
+  '/services/:id/products',
+  requireAuth,
+  requireVendor(),
+  asyncHandler(async (req, res) => {
+    const vendorId = req.vendor!.id;
+    const service = await prisma.service.findFirst({
+      where: { id: req.params.id, vendorId, deletedAt: null },
+    });
+    if (!service) throw new HttpError(404, 'Service not found', { code: 'not_found' });
+
+    const items = await prisma.serviceProduct.findMany({
+      where: { serviceId: service.id },
+      include: {
+        product: {
+          select: { id: true, name: true, unit: true, stockQty: true, category: true, deletedAt: true },
+        },
+      },
+    });
+    res.json({
+      serviceId: service.id,
+      items: items
+        // Hide rows where the linked product was soft-deleted; the recipe
+        // still applies (will silently skip at auto-deduct time) but the
+        // UI shouldn't surface tombstoned products.
+        .filter((i) => !i.product.deletedAt)
+        .map((i) => ({
+          productId: i.product.id,
+          productName: i.product.name,
+          unit: i.product.unit,
+          category: String(i.product.category),
+          stockQty: i.product.stockQty,
+          qtyPerWash: i.qtyPerWash,
+        })),
+    });
+  }),
+);
+
+inventoryRouter.put(
+  '/services/:id/products',
+  requireAuth,
+  requireVendor('owner', 'manager'),
+  asyncHandler(async (req, res) => {
+    const body = recipeBody.parse(req.body);
+    const vendorId = req.vendor!.id;
+    const service = await prisma.service.findFirst({
+      where: { id: req.params.id, vendorId, deletedAt: null },
+    });
+    if (!service) throw new HttpError(404, 'Service not found', { code: 'not_found' });
+
+    // Validate every productId actually belongs to this vendor before
+    // touching any rows — avoids partial writes.
+    const productIds = body.items.map((i) => i.productId);
+    if (productIds.length > 0) {
+      const owned = await prisma.product.count({
+        where: { id: { in: productIds }, vendorId, deletedAt: null },
+      });
+      if (owned !== productIds.length) {
+        throw new HttpError(400, 'One or more products are unknown or archived', {
+          code: 'invalid_product_ref',
+        });
+      }
+    }
+
+    await prisma.$transaction([
+      prisma.serviceProduct.deleteMany({ where: { serviceId: service.id } }),
+      prisma.serviceProduct.createMany({
+        data: body.items.map((i) => ({
+          serviceId: service.id,
+          productId: i.productId,
+          qtyPerWash: i.qtyPerWash,
+        })),
+        skipDuplicates: true,
+      }),
+    ]);
+    res.json({ serviceId: service.id, count: body.items.length });
+  }),
+);
+
+// ── Suppliers ────────────────────────────────────────────────────────────
+
+const supplierBody = z.object({
+  name: z.string().trim().min(1).max(120),
+  contactName: z.string().trim().max(120).nullable().optional(),
+  phone: z.string().trim().max(40).nullable().optional(),
+  email: z.string().email().max(120).nullable().optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+});
+
+inventoryRouter.get(
+  '/inventory/suppliers',
+  requireAuth,
+  requireVendor(),
+  asyncHandler(async (req, res) => {
+    const rows = await prisma.supplier.findMany({
+      where: { vendorId: req.vendor!.id, deletedAt: null },
+      orderBy: { name: 'asc' },
+    });
+    res.json({ items: rows.map(serializeSupplier) });
+  }),
+);
+
+inventoryRouter.post(
+  '/inventory/suppliers',
+  requireAuth,
+  requireVendor('owner', 'manager'),
+  asyncHandler(async (req, res) => {
+    const body = supplierBody.parse(req.body);
+    const supplier = await prisma.supplier.create({
+      data: {
+        vendorId: req.vendor!.id,
+        name: body.name,
+        contactName: body.contactName ?? null,
+        phone: body.phone ?? null,
+        email: body.email ?? null,
+        notes: body.notes ?? null,
+      },
+    });
+    res.status(201).json(serializeSupplier(supplier));
+  }),
+);
+
+inventoryRouter.patch(
+  '/inventory/suppliers/:id',
+  requireAuth,
+  requireVendor('owner', 'manager'),
+  asyncHandler(async (req, res) => {
+    const body = supplierBody.partial().parse(req.body);
+    const vendorId = req.vendor!.id;
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: req.params.id, vendorId, deletedAt: null },
+    });
+    if (!supplier) throw new HttpError(404, 'Supplier not found', { code: 'not_found' });
+    const updated = await prisma.supplier.update({
+      where: { id: supplier.id },
+      data: {
+        ...body,
+        contactName: body.contactName === undefined ? undefined : body.contactName ?? null,
+        phone: body.phone === undefined ? undefined : body.phone ?? null,
+        email: body.email === undefined ? undefined : body.email ?? null,
+        notes: body.notes === undefined ? undefined : body.notes ?? null,
+      },
+    });
+    res.json(serializeSupplier(updated));
+  }),
+);
+
+inventoryRouter.delete(
+  '/inventory/suppliers/:id',
+  requireAuth,
+  requireVendor('owner'),
+  asyncHandler(async (req, res) => {
+    const vendorId = req.vendor!.id;
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: req.params.id, vendorId, deletedAt: null },
+    });
+    if (!supplier) throw new HttpError(404, 'Supplier not found', { code: 'not_found' });
+    // Refuse if any non-terminal POs still reference this supplier.
+    const openPos = await prisma.purchaseOrder.count({
+      where: { supplierId: supplier.id, status: { in: ['draft', 'submitted'] } },
+    });
+    if (openPos > 0) {
+      throw new HttpError(409, 'Close or cancel open POs before archiving this supplier', {
+        code: 'supplier_in_use',
+      });
+    }
+    await prisma.supplier.update({
+      where: { id: supplier.id },
+      data: { deletedAt: new Date() },
+    });
+    res.json({ ok: true });
+  }),
+);
+
+function serializeSupplier(s: {
+  id: string;
+  name: string;
+  contactName: string | null;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  createdAt: Date;
+}) {
+  return {
+    id: s.id,
+    name: s.name,
+    contactName: s.contactName,
+    phone: s.phone,
+    email: s.email,
+    notes: s.notes,
+    createdAt: s.createdAt.toISOString(),
+  };
+}
+
+// ── Purchase orders ──────────────────────────────────────────────────────
+//
+// State machine:
+//   draft     —> submitted     (owner ready to send to supplier)
+//   submitted —> received      (delivery arrived; auto-restock fires)
+//   draft     —> cancelled     (nothing happened; soft abort)
+//   submitted —> cancelled     (didn't arrive; soft abort, no stock move)
+//
+// Receiving is the only path that mutates inventory — it walks the items
+// and posts one StockMovement (reason='restock') per line.
+
+const poItemSchema = z.object({
+  productId: z.string().min(1),
+  qty: z.number().int().min(1).max(100_000),
+  unitCostAed: z.number().int().min(0).max(100_000),
+});
+
+const createPoBody = z.object({
+  supplierId: z.string().min(1),
+  expectedAt: z.string().datetime().nullable().optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+  items: z.array(poItemSchema).min(1).max(100),
+});
+
+const updatePoBody = z.object({
+  supplierId: z.string().min(1).optional(),
+  expectedAt: z.string().datetime().nullable().optional(),
+  notes: z.string().trim().max(1000).nullable().optional(),
+  items: z.array(poItemSchema).min(1).max(100).optional(),
+});
+
+inventoryRouter.get(
+  '/inventory/purchase-orders',
+  requireAuth,
+  requireVendor(),
+  asyncHandler(async (req, res) => {
+    const vendorId = req.vendor!.id;
+    const statusFilter = z
+      .enum(['draft', 'submitted', 'received', 'cancelled'])
+      .optional()
+      .parse(req.query.status);
+
+    const rows = await prisma.purchaseOrder.findMany({
+      where: { vendorId, ...(statusFilter ? { status: statusFilter } : {}) },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        supplier: { select: { id: true, name: true } },
+        items: {
+          include: { product: { select: { name: true, unit: true } } },
+        },
+      },
+    });
+    res.json({ items: rows.map(serializePo) });
+  }),
+);
+
+inventoryRouter.post(
+  '/inventory/purchase-orders',
+  requireAuth,
+  requireVendor('owner', 'manager'),
+  asyncHandler(async (req, res) => {
+    const body = createPoBody.parse(req.body);
+    const vendorId = req.vendor!.id;
+    const userId = req.user!.id;
+
+    // Validate supplier + products belong to this vendor.
+    const supplier = await prisma.supplier.findFirst({
+      where: { id: body.supplierId, vendorId, deletedAt: null },
+    });
+    if (!supplier) throw new HttpError(400, 'Unknown supplier', { code: 'invalid_supplier' });
+
+    const productIds = body.items.map((i) => i.productId);
+    const owned = await prisma.product.count({
+      where: { id: { in: productIds }, vendorId, deletedAt: null },
+    });
+    if (owned !== productIds.length) {
+      throw new HttpError(400, 'One or more products are unknown or archived', {
+        code: 'invalid_product_ref',
+      });
+    }
+
+    const totalAed = body.items.reduce((s, i) => s + i.qty * i.unitCostAed, 0);
+
+    const po = await prisma.$transaction(async (tx) => {
+      // Mint the PO reference using the vendor's lastPoSeq counter.
+      const v = await tx.vendor.update({
+        where: { id: vendorId },
+        data: { lastPoSeq: { increment: 1 } },
+        select: { lastPoSeq: true },
+      });
+      const reference = `PO-${String(v.lastPoSeq).padStart(6, '0')}`;
+
+      const created = await tx.purchaseOrder.create({
+        data: {
+          vendorId,
+          supplierId: supplier.id,
+          reference,
+          status: 'draft',
+          expectedAt: body.expectedAt ? new Date(body.expectedAt) : null,
+          notes: body.notes ?? null,
+          totalAed,
+          createdById: userId,
+          items: {
+            create: body.items.map((i) => ({
+              productId: i.productId,
+              qty: i.qty,
+              unitCostAed: i.unitCostAed,
+            })),
+          },
+        },
+        include: {
+          supplier: { select: { id: true, name: true } },
+          items: { include: { product: { select: { name: true, unit: true } } } },
+        },
+      });
+      return created;
+    });
+
+    logger.info({ poId: po.id, reference: po.reference, totalAed }, 'PO drafted');
+    res.status(201).json(serializePo(po));
+  }),
+);
+
+inventoryRouter.patch(
+  '/inventory/purchase-orders/:id',
+  requireAuth,
+  requireVendor('owner', 'manager'),
+  asyncHandler(async (req, res) => {
+    const body = updatePoBody.parse(req.body);
+    const vendorId = req.vendor!.id;
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.id, vendorId },
+    });
+    if (!po) throw new HttpError(404, 'PO not found', { code: 'not_found' });
+    if (po.status !== 'draft') {
+      throw new HttpError(409, `Can only edit draft POs (this one is ${po.status})`, {
+        code: 'po_locked',
+      });
+    }
+
+    if (body.items) {
+      // Re-validate product ownership when the items list changes.
+      const productIds = body.items.map((i) => i.productId);
+      const owned = await prisma.product.count({
+        where: { id: { in: productIds }, vendorId, deletedAt: null },
+      });
+      if (owned !== productIds.length) {
+        throw new HttpError(400, 'One or more products are unknown or archived', {
+          code: 'invalid_product_ref',
+        });
+      }
+    }
+
+    const totalAed = body.items ? body.items.reduce((s, i) => s + i.qty * i.unitCostAed, 0) : po.totalAed;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      if (body.items) {
+        await tx.purchaseOrderItem.deleteMany({ where: { purchaseOrderId: po.id } });
+        await tx.purchaseOrderItem.createMany({
+          data: body.items.map((i) => ({
+            purchaseOrderId: po.id,
+            productId: i.productId,
+            qty: i.qty,
+            unitCostAed: i.unitCostAed,
+          })),
+        });
+      }
+      return tx.purchaseOrder.update({
+        where: { id: po.id },
+        data: {
+          supplierId: body.supplierId ?? undefined,
+          expectedAt:
+            body.expectedAt === undefined
+              ? undefined
+              : body.expectedAt === null
+                ? null
+                : new Date(body.expectedAt),
+          notes: body.notes === undefined ? undefined : body.notes ?? null,
+          totalAed,
+        },
+        include: {
+          supplier: { select: { id: true, name: true } },
+          items: { include: { product: { select: { name: true, unit: true } } } },
+        },
+      });
+    });
+
+    res.json(serializePo(updated));
+  }),
+);
+
+inventoryRouter.post(
+  '/inventory/purchase-orders/:id/submit',
+  requireAuth,
+  requireVendor('owner', 'manager'),
+  asyncHandler(async (req, res) => {
+    const vendorId = req.vendor!.id;
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.id, vendorId },
+    });
+    if (!po) throw new HttpError(404, 'PO not found', { code: 'not_found' });
+    if (po.status !== 'draft') {
+      throw new HttpError(409, `Only drafts can be submitted (this one is ${po.status})`, {
+        code: 'po_locked',
+      });
+    }
+    const updated = await prisma.purchaseOrder.update({
+      where: { id: po.id },
+      data: { status: 'submitted' },
+      include: {
+        supplier: { select: { id: true, name: true } },
+        items: { include: { product: { select: { name: true, unit: true } } } },
+      },
+    });
+    res.json(serializePo(updated));
+  }),
+);
+
+inventoryRouter.post(
+  '/inventory/purchase-orders/:id/receive',
+  requireAuth,
+  requireVendor('owner', 'manager'),
+  asyncHandler(async (req, res) => {
+    const vendorId = req.vendor!.id;
+    const userId = req.user!.id;
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.id, vendorId },
+      include: { items: true },
+    });
+    if (!po) throw new HttpError(404, 'PO not found', { code: 'not_found' });
+    if (po.status !== 'submitted') {
+      throw new HttpError(409, `Only submitted POs can be received (this one is ${po.status})`, {
+        code: 'po_not_submitted',
+      });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      // Post one restock movement per line item. postStockChange throws
+      // on a below-zero result (impossible for restocks) and on a
+      // missing product (defensive — products can't be hard-deleted).
+      for (const item of po.items) {
+        await postStockChange(tx, vendorId, {
+          productId: item.productId,
+          delta: item.qty,
+          reason: 'restock',
+          note: `Received via ${po.reference}`,
+          createdById: userId,
+        });
+      }
+      return tx.purchaseOrder.update({
+        where: { id: po.id },
+        data: { status: 'received', receivedAt: new Date() },
+        include: {
+          supplier: { select: { id: true, name: true } },
+          items: { include: { product: { select: { name: true, unit: true } } } },
+        },
+      });
+    });
+
+    logger.info(
+      { poId: updated.id, reference: updated.reference, items: po.items.length },
+      'PO received, stock restocked',
+    );
+    res.json(serializePo(updated));
+  }),
+);
+
+inventoryRouter.post(
+  '/inventory/purchase-orders/:id/cancel',
+  requireAuth,
+  requireVendor('owner', 'manager'),
+  asyncHandler(async (req, res) => {
+    const vendorId = req.vendor!.id;
+    const po = await prisma.purchaseOrder.findFirst({
+      where: { id: req.params.id, vendorId },
+    });
+    if (!po) throw new HttpError(404, 'PO not found', { code: 'not_found' });
+    if (po.status === 'received' || po.status === 'cancelled') {
+      throw new HttpError(409, `Can't cancel a ${po.status} PO`, { code: 'po_terminal' });
+    }
+    const updated = await prisma.purchaseOrder.update({
+      where: { id: po.id },
+      data: { status: 'cancelled' },
+      include: {
+        supplier: { select: { id: true, name: true } },
+        items: { include: { product: { select: { name: true, unit: true } } } },
+      },
+    });
+    res.json(serializePo(updated));
+  }),
+);
+
+function serializePo(p: {
+  id: string;
+  reference: string;
+  status: string;
+  expectedAt: Date | null;
+  receivedAt: Date | null;
+  totalAed: number;
+  notes: string | null;
+  createdAt: Date;
+  supplier: { id: string; name: string };
+  items: Array<{
+    id: string;
+    productId: string;
+    qty: number;
+    unitCostAed: number;
+    product: { name: string; unit: string };
+  }>;
+}) {
+  return {
+    id: p.id,
+    reference: p.reference,
+    status: String(p.status),
+    expectedAt: p.expectedAt?.toISOString() ?? null,
+    receivedAt: p.receivedAt?.toISOString() ?? null,
+    totalAed: p.totalAed,
+    notes: p.notes,
+    createdAt: p.createdAt.toISOString(),
+    supplier: p.supplier,
+    items: p.items.map((i) => ({
+      id: i.id,
+      productId: i.productId,
+      productName: i.product.name,
+      unit: i.product.unit,
+      qty: i.qty,
+      unitCostAed: i.unitCostAed,
+      lineTotalAed: i.qty * i.unitCostAed,
+    })),
   };
 }

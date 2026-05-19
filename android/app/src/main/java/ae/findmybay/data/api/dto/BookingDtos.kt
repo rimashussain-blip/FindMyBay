@@ -7,6 +7,8 @@ data class CreateBookingBody(
     val vendorId: String,
     val serviceId: String,
     val slotStart: String, // ISO 8601
+    /** Optional promo code typed at checkout. Backend uppercases + validates. */
+    val promoCode: String? = null,
 )
 
 @Serializable
@@ -20,6 +22,10 @@ data class BookingDto(
     val slotEnd: String,
     val totalAed: Int,
     val vatAed: Int = 0,
+    /** Amount knocked off via a promo code at create time. 0 if no promo. */
+    val discountAed: Int = 0,
+    /** The promo code that was applied (so the receipt can echo it). */
+    val promoCode: String? = null,
     val invoiceNumber: String? = null,
     val createdAt: String,
 )

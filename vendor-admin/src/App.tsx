@@ -17,6 +17,7 @@ import StaffPage from './pages/StaffPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
 import FinancePage from './pages/FinancePage';
 import InventoryPage from './pages/InventoryPage';
+import ProcurementPage from './pages/ProcurementPage';
 import LoyaltyPage from './pages/LoyaltyPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
@@ -95,6 +96,7 @@ function VendorShell() {
         <Route path="/promotions" element={<PromotionsPage />} />
         <Route path="/finance" element={<FinancePage />} />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/procurement" element={<ProcurementPage />} />
         <Route path="/loyalty" element={<LoyaltyPage />} />
         <Route path="/staff" element={<StaffPage />} />
         <Route path="/services" element={<ServicesPage />} />

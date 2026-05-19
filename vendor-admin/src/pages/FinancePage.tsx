@@ -8,11 +8,15 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  closePayout,
   getFinanceOverview,
   getInvoiceDetail,
   getVatSummary,
   listInvoices,
+  listPayouts,
   listRefunds,
+  markPayoutPaid,
+  previewPayout,
   recordRefund,
   vatSummaryCsvUrl,
   voidRefund,
@@ -20,12 +24,14 @@ import {
   type InvoiceDetail,
   type InvoiceRow,
   type PaymentStatusFilter,
+  type Payout,
+  type PayoutPreview,
   type RefundRow,
   type VatSummary,
 } from '../api/finance';
 import { useAuth } from '../store/auth';
 
-type Tab = 'overview' | 'invoices' | 'refunds' | 'vat';
+type Tab = 'overview' | 'invoices' | 'refunds' | 'vat' | 'payouts';
 
 // Default range = trailing 30 days, both ends inclusive (UTC midnight).
 function defaultRange() {
@@ -54,7 +60,7 @@ export default function FinancePage() {
       </header>
 
       <div className="flex items-center gap-1 rounded-2xl border border-mint-edge bg-white p-1 w-fit">
-        {(['overview', 'invoices', 'refunds', 'vat'] as const).map((t) => {
+        {(['overview', 'invoices', 'refunds', 'vat', 'payouts'] as const).map((t) => {
           const on = tab === t;
           return (
             <button
@@ -75,6 +81,7 @@ export default function FinancePage() {
       {tab === 'invoices' && <InvoicesTab from={from} to={to} />}
       {tab === 'refunds' && <RefundsTab from={from} to={to} />}
       {tab === 'vat' && <VatTab from={from} to={to} />}
+      {tab === 'payouts' && <PayoutsTab from={from} to={to} />}
     </div>
   );
 }
@@ -879,6 +886,283 @@ function VatTab({ from, to }: { from: string; to: string }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ── Payouts tab ──────────────────────────────────────────────────────────
+
+function PayoutsTab({ from, to }: { from: string; to: string }) {
+  const qc = useQueryClient();
+  const [closing, setClosing] = useState(false);
+  const { data, isLoading } = useQuery({ queryKey: ['payouts'], queryFn: listPayouts });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <p className="text-xs text-ink-soft max-w-[520px]">
+          Close a period to lock its totals + record the settlement off-platform.
+          Once paid, mark it paid and capture the bank reference for audit.
+        </p>
+        <button onClick={() => setClosing(true)} className="btn-primary">
+          + Close a period
+        </button>
+      </div>
+
+      <div className="rounded-2xl border border-mint-edge bg-white overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-mint/40 text-left text-[11px] font-bold uppercase tracking-wider text-ink-soft">
+              <th className="px-4 py-3">Period</th>
+              <th className="px-4 py-3 text-right">Bookings</th>
+              <th className="px-4 py-3 text-right">Gross</th>
+              <th className="px-4 py-3 text-right">Refunds</th>
+              <th className="px-4 py-3 text-right">VAT</th>
+              <th className="px-4 py-3 text-right">Net to vendor</th>
+              <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-mint-edge">
+            {isLoading && (
+              <tr>
+                <td colSpan={8} className="px-4 py-6 text-center text-ink-soft">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {data?.items.length === 0 && !isLoading && (
+              <tr>
+                <td colSpan={8} className="px-4 py-10 text-center text-ink-soft">
+                  No payouts yet. Close your first period to start the ledger.
+                </td>
+              </tr>
+            )}
+            {data?.items.map((p) => (
+              <PayoutRow
+                key={p.id}
+                p={p}
+                onMarkPaid={async () => {
+                  const ref = prompt('Bank/transfer reference (optional):') ?? undefined;
+                  try {
+                    await markPayoutPaid(p.id, ref || undefined);
+                    qc.invalidateQueries({ queryKey: ['payouts'] });
+                  } catch (e) {
+                    alert(extractError(e));
+                  }
+                }}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {closing && (
+        <ClosePayoutModal
+          defaultFrom={from}
+          defaultTo={to}
+          onClose={() => setClosing(false)}
+          onClosed={() => {
+            setClosing(false);
+            qc.invalidateQueries({ queryKey: ['payouts'] });
+            qc.invalidateQueries({ queryKey: ['finance-overview'] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PayoutRow({ p, onMarkPaid }: { p: Payout; onMarkPaid: () => void }) {
+  const paid = p.status === 'paid';
+  return (
+    <tr className="hover:bg-mint/20">
+      <td className="px-4 py-3">
+        <div className="font-semibold text-ink">
+          {formatDate(p.periodStart)} → {formatDate(p.periodEnd)}
+        </div>
+        <div className="text-[11px] text-ink-soft">Closed {formatDate(p.createdAt)}</div>
+      </td>
+      <td className="px-4 py-3 text-right text-ink-soft">{p.bookingCount}</td>
+      <td className="px-4 py-3 text-right text-ink">{aed(p.grossAed)}</td>
+      <td className="px-4 py-3 text-right text-coral">{p.refundsAed > 0 ? `-${aed(p.refundsAed)}` : '—'}</td>
+      <td className="px-4 py-3 text-right text-ink-soft">{aed(p.vatAed)}</td>
+      <td className="px-4 py-3 text-right font-semibold text-ink">{aed(p.netToVendorAed)}</td>
+      <td className="px-4 py-3">
+        <span
+          className={[
+            'inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider',
+            paid ? 'bg-mint text-primary-deep' : 'bg-sand text-[#7a4d12]',
+          ].join(' ')}
+        >
+          <span className={['h-1.5 w-1.5 rounded-full', paid ? 'bg-primary-deep' : 'bg-[#7a4d12]'].join(' ')} />
+          {paid ? 'Paid' : 'Pending'}
+        </span>
+        {paid && p.paidExternalRef && (
+          <div className="text-[10px] text-ink-soft mt-0.5 font-mono">{p.paidExternalRef}</div>
+        )}
+      </td>
+      <td className="px-4 py-3 text-right">
+        {!paid && (
+          <button
+            onClick={onMarkPaid}
+            className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
+          >
+            Mark paid
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function ClosePayoutModal({
+  defaultFrom,
+  defaultTo,
+  onClose,
+  onClosed,
+}: {
+  defaultFrom: string;
+  defaultTo: string;
+  onClose: () => void;
+  onClosed: () => void;
+}) {
+  const [periodStart, setPeriodStart] = useState(defaultFrom.slice(0, 10));
+  const [periodEnd, setPeriodEnd] = useState(defaultTo.slice(0, 10));
+  const [notes, setNotes] = useState('');
+  const [preview, setPreview] = useState<PayoutPreview | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function refreshPreview() {
+    setError(null);
+    setLoading(true);
+    try {
+      const startIso = new Date(periodStart + 'T00:00:00').toISOString();
+      const endIso = new Date(periodEnd + 'T23:59:59').toISOString();
+      const p = await previewPayout(startIso, endIso);
+      setPreview(p);
+    } catch (e) {
+      setError(extractError(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function close() {
+    if (!preview) return;
+    setLoading(true);
+    setError(null);
+    try {
+      await closePayout(preview.periodStart, preview.periodEnd, notes.trim() || undefined);
+      onClosed();
+    } catch (e) {
+      setError(extractError(e));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4 py-6 overflow-y-auto"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-2xl bg-white shadow-2xl my-auto p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-lg font-bold text-ink">Close payout period</h3>
+          <button onClick={onClose} className="text-ink-soft hover:text-ink">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="label-eyebrow mb-1.5">From</div>
+              <input
+                type="date"
+                className="input"
+                value={periodStart}
+                onChange={(e) => setPeriodStart(e.target.value)}
+              />
+            </div>
+            <div>
+              <div className="label-eyebrow mb-1.5">To</div>
+              <input
+                type="date"
+                className="input"
+                value={periodEnd}
+                onChange={(e) => setPeriodEnd(e.target.value)}
+              />
+            </div>
+          </div>
+          <button onClick={refreshPreview} className="btn-outlined" disabled={loading}>
+            {loading && !preview ? 'Calculating…' : 'Preview totals'}
+          </button>
+
+          {preview && (
+            <div className="rounded-xl border border-mint-edge bg-mint/30 p-3 text-sm space-y-1">
+              <PreviewLine label="Bookings" value={String(preview.bookingCount)} />
+              <PreviewLine label="Gross" value={aed(preview.grossAed)} />
+              <PreviewLine label="Refunds" value={`-${aed(preview.refundsAed)}`} tone="coral" />
+              <PreviewLine label="VAT due" value={aed(preview.vatAed)} />
+              {preview.feesAed > 0 && (
+                <PreviewLine label="Platform fees" value={`-${aed(preview.feesAed)}`} tone="coral" />
+              )}
+              <div className="border-t border-mint-edge mt-2 pt-2 flex justify-between font-bold">
+                <span className="text-ink">Net to vendor</span>
+                <span className="text-ink">{aed(preview.netToVendorAed)}</span>
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="label-eyebrow mb-1.5">Notes (optional)</div>
+            <textarea
+              className="input min-h-[60px] resize-y"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Cycle name, bank account, anything to remember…"
+              maxLength={500}
+            />
+          </div>
+
+          {error && (
+            <div className="rounded-lg bg-coral-soft px-3 py-2 text-xs text-coral">{error}</div>
+          )}
+
+          <div className="flex items-center justify-end gap-2">
+            <button onClick={onClose} className="btn-outlined">
+              Cancel
+            </button>
+            <button onClick={close} disabled={!preview || loading} className="btn-primary">
+              {loading ? 'Closing…' : 'Close period'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviewLine({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'coral';
+}) {
+  return (
+    <div className="flex justify-between text-xs">
+      <span className="text-ink-soft">{label}</span>
+      <span className={tone === 'coral' ? 'text-coral font-semibold' : 'text-ink font-semibold'}>{value}</span>
     </div>
   );
 }

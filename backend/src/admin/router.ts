@@ -18,6 +18,7 @@ import { sendWashCompletePush } from '../notify/washComplete.js';
 import { priceLineFromService } from '../lib/vat.js';
 import { assignInvoiceNumber } from '../lib/invoice.js';
 import { loadLoyaltyForCustomers } from '../lib/loyalty.js';
+import { autoDeductForBooking } from '../lib/stock.js';
 
 export const adminRouter = Router();
 
@@ -626,6 +627,7 @@ adminRouter.patch(
     // Terminal statuses release the bay back to `free` so it's bookable again.
     const releasesBay = ['completed', 'cancelled', 'no_show'].includes(status);
 
+    const isFirstCompletion = status === 'completed' && booking.status !== 'completed';
     const result = await prisma.$transaction(async (tx) => {
       const u = await tx.booking.update({
         where: { id: booking.id },
@@ -641,7 +643,21 @@ adminRouter.patch(
           bayFlipped = { id: bay.id, status: 'free' };
         }
       }
-      return { booking: u, bayFlipped };
+
+      // Auto-deduct inventory when a booking is FIRST marked completed.
+      // Re-completing the same booking (status flips back and forth)
+      // would otherwise post duplicate movements. Safe to run inside
+      // the same transaction — failures only warn, never abort.
+      let inventory: { deducted: Array<{ productId: string; delta: number }>; warnings: string[] } | null = null;
+      if (isFirstCompletion) {
+        inventory = await autoDeductForBooking(tx, {
+          vendorId: req.vendor!.id,
+          bookingId: booking.id,
+          serviceId: booking.serviceId,
+          userId: req.user!.id,
+        });
+      }
+      return { booking: u, bayFlipped, inventory };
     });
 
     if (result.bayFlipped) {
@@ -651,11 +667,18 @@ adminRouter.patch(
     emitVendorBookingChanged(req.vendor!.id, result.booking.id, String(result.booking.status));
 
     // "Your car is fresh & ready" push lands when the booking is marked completed.
-    if (status === 'completed' && booking.status !== 'completed') {
+    if (isFirstCompletion) {
       void sendWashCompletePush(result.booking.id);
     }
 
-    res.json({ id: result.booking.id, status: String(result.booking.status) });
+    res.json({
+      id: result.booking.id,
+      status: String(result.booking.status),
+      // Optional inventory summary — populated when this status change
+      // ran the auto-deduct path. SPA can use it for a toast like
+      // "Stock deducted: 1 microfiber, 1 shampoo".
+      inventory: result.inventory,
+    });
   }),
 );
 

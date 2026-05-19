@@ -214,6 +214,10 @@ model Vendor {
   // credit notes as a parallel sequence with the same monotonicity rules
   // (no skips). Atomically incremented when a Refund row is recorded.
   lastCreditNoteSeq Int        @default(0) @map("last_credit_note_seq")
+  // Per-vendor PO counter, mirrors lastInvoiceSeq. Atomically bumped
+  // when a PurchaseOrder is created so each PO has a stable "PO-000042"
+  // reference from day 1.
+  lastPoSeq         Int        @default(0) @map("last_po_seq")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
   deletedAt       DateTime?    @map("deleted_at")
@@ -225,8 +229,11 @@ model Vendor {
   promotions   Promotion[]
   staffInvites StaffInvite[]
   refunds      Refund[]
-  products     Product[]
-  stockMoves   StockMovement[]
+  products       Product[]
+  stockMoves     StockMovement[]
+  suppliers      Supplier[]
+  purchaseOrders PurchaseOrder[]
+  payouts        Payout[]
 
   @@index([emirate, city])
   @@map("vendors")
@@ -361,9 +368,34 @@ model Service {
 
   vendor   Vendor    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
   bookings Booking[]
+  products ServiceProduct[]
 
   @@index([vendorId])
   @@map("services")
+}
+
+// Recipe link between a Service and the Products it consumes. When a
+// booking flips to 'completed', the booking-status route walks these
+// rows for the booking's service and decrements each product's stockQty
+// by qtyPerWash, writing one StockMovement (reason='used_in_wash') per
+// product. qtyPerWash is an integer in the product's `unit` (so a
+// shampoo service might consume 1 "pcs" of microfiber towel and 0.1 of
+// shampoo bottle — but we round to whole units; vendors can model partial
+// units by changing the product's unit definition).
+model ServiceProduct {
+  id           String  @id @default(cuid())
+  serviceId    String  @map("service_id")
+  productId    String  @map("product_id")
+  qtyPerWash   Int     @default(1) @map("qty_per_wash")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, productId])
+  @@index([serviceId])
+  @@index([productId])
+  @@map("service_products")
 }
 
 // -------------------------------------------------------------
@@ -495,6 +527,11 @@ model Refund {
   status           RefundStatus @default(processed)
   // FTA credit note: sequential, scoped to the vendor, never reused.
   creditNoteNumber String?      @unique @map("credit_note_number")
+  // Processor-side transaction id for the refund itself. Populated when
+  // the existing Payment row's processor (mock/telr) actually committed
+  // the reversal. Null for legacy refunds recorded before V1.1 or when
+  // the refund was applied out-of-band (no Payment row to reverse).
+  processorRef     String?      @map("processor_ref")
   // The vendor staff member who logged this refund. Optional so legacy
   // refunds (or system-issued ones) can be inserted without a user FK.
   createdById      String?      @map("created_by_id")
@@ -514,6 +551,50 @@ enum RefundStatus {
   // refund as cancelled without deleting the row (audit trail stays).
   processed
   voided
+}
+
+// Payout = the platform's settlement to a vendor for a date range. One
+// row per closed period. The amounts snapshot what was true when the
+// period was closed, so editing a historical booking doesn't drift the
+// payout total. Real money movement happens off-platform (bank transfer
+// from the platform's account); the row tracks "what we owe" and "what's
+// been paid". V1 has a single 'paid' status flag — no partial settlements.
+model Payout {
+  id               String       @id @default(cuid())
+  vendorId         String       @map("vendor_id")
+  // Inclusive on both ends. Convention: weekly cycles ending Saturday
+  // midnight, but the V1 owner picks any range — we don't enforce.
+  periodStart      DateTime     @map("period_start")
+  periodEnd        DateTime     @map("period_end")
+  // Snapshot fields — read once on close, never recomputed.
+  grossAed         Int          @map("gross_aed")
+  refundsAed       Int          @default(0) @map("refunds_aed")
+  vatAed           Int          @default(0) @map("vat_aed")
+  // Platform commission ex-VAT. V1 hard-codes 0 (no commission yet);
+  // surfaces here so the column exists once we start charging.
+  feesAed          Int          @default(0) @map("fees_aed")
+  // What we actually owe the vendor after VAT pass-through + fees.
+  netToVendorAed   Int          @map("net_to_vendor_aed")
+  // Booking count in the period — useful for reconciliation.
+  bookingCount     Int          @default(0) @map("booking_count")
+  status           PayoutStatus @default(pending)
+  paidAt           DateTime?    @map("paid_at")
+  // Bank reference / receipt id from the off-platform transfer.
+  paidExternalRef  String?      @map("paid_external_ref")
+  notes            String?
+  createdById      String?      @map("created_by_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt      @map("updated_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, periodEnd])
+  @@map("payouts")
+}
+
+enum PayoutStatus {
+  pending   // Closed but not yet sent to the vendor
+  paid      // Marked as settled by the platform admin
 }
 
 // -------------------------------------------------------------
@@ -556,8 +637,10 @@ model Product {
   createdAt       DateTime        @default(now()) @map("created_at")
   updatedAt       DateTime        @updatedAt      @map("updated_at")
 
-  vendor    Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
-  movements StockMovement[]
+  vendor       Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  movements    StockMovement[]
+  serviceLinks ServiceProduct[]
+  poItems      PurchaseOrderItem[]
 
   @@unique([vendorId, sku])
   @@index([vendorId, deletedAt])
@@ -609,11 +692,95 @@ model StockMovement {
 // Reason taxonomy keeps the movement log filterable. Free-text `note`
 // captures the specifics.
 enum StockMovementReason {
-  restock        // Bought more / received delivery
+  restock        // Bought more / received delivery (manual or PO-driven)
   adjustment     // Owner manually corrected the count
   used_in_wash   // Auto-deduct from a completed booking (V1.1)
   shrinkage      // Lost, broken, expired
   initial_stock  // Opening balance when product first added
+}
+
+// Supplier directory. Vendors track who sells them their consumables;
+// purchase orders point at a supplier so the audit trail covers "where
+// did this stock come from?". Pure CRUD — no industry-specific fields
+// in V1. Add VAT/TRN later if vendors need to chain receipts upstream.
+model Supplier {
+  id          String   @id @default(cuid())
+  vendorId    String   @map("vendor_id")
+  name        String
+  contactName String?  @map("contact_name")
+  phone       String?
+  email       String?
+  notes       String?
+  deletedAt   DateTime? @map("deleted_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+
+  vendor         Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  purchaseOrders PurchaseOrder[]
+
+  @@index([vendorId, deletedAt])
+  @@map("suppliers")
+}
+
+// Purchase order: a draft → submitted → delivered workflow. When the
+// owner marks a PO delivered, the backend writes one StockMovement
+// (reason='restock') per item and bumps each product's stockQty. The
+// PO row's status flips to 'received'. Cancelled POs don't move stock.
+model PurchaseOrder {
+  id             String              @id @default(cuid())
+  vendorId       String              @map("vendor_id")
+  supplierId     String              @map("supplier_id")
+  // Sequential reference like "PO-000042" per vendor. Minted on draft
+  // creation so the PDF / quote PDF can reference it from day 1.
+  reference      String              @unique
+  status         PurchaseOrderStatus @default(draft)
+  // Optional expected delivery date — surfaces on the PO list as
+  // "Expected Thu 21 May". Doesn't drive any logic, just UX.
+  expectedAt     DateTime?           @map("expected_at")
+  receivedAt     DateTime?           @map("received_at")
+  // Total cost is stored once the PO is submitted so historical reports
+  // don't drift if a product's costAed changes later.
+  totalAed       Int                 @default(0) @map("total_aed")
+  notes          String?
+  createdById    String?             @map("created_by_id")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt      @map("updated_at")
+
+  vendor   Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  items    PurchaseOrderItem[]
+
+  @@index([vendorId, status])
+  @@index([supplierId])
+  @@map("purchase_orders")
+}
+
+enum PurchaseOrderStatus {
+  draft       // Owner is still editing line items
+  submitted   // Sent to supplier; awaiting delivery
+  received    // Items arrived; stock movements were posted
+  cancelled   // Aborted before delivery; no movements
+}
+
+// Line item on a purchase order. Quantity + unit cost are snapshotted
+// here so adjusting the product's catalog cost later doesn't rewrite
+// historical PO totals.
+model PurchaseOrderItem {
+  id              String   @id @default(cuid())
+  purchaseOrderId String   @map("purchase_order_id")
+  productId       String   @map("product_id")
+  qty             Int
+  // AED per unit AT TIME OF ORDER. Total = qty * unitCostAed.
+  unitCostAed     Int      @default(0) @map("unit_cost_aed")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([purchaseOrderId, productId])
+  @@index([purchaseOrderId])
+  @@index([productId])
+  @@map("purchase_order_items")
 }
 
 // -------------------------------------------------------------

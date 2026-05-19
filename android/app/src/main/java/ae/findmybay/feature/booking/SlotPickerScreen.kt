@@ -22,11 +22,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocalOffer
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -82,7 +87,20 @@ fun SlotPickerScreen(
     Scaffold(
         containerColor = FmbCream,
         bottomBar = {
-            Box(modifier = Modifier.fillMaxWidth().background(FmbCream).padding(16.dp)) {
+            Column(
+                modifier = Modifier.fillMaxWidth().background(FmbCream).padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Promo-code accordion — collapsed by default to keep the
+                // bottom bar minimal; tap "Have a promo code?" to expand
+                // the input. The backend validates on confirm so we don't
+                // need a separate "Apply" round-trip.
+                PromoCodeBlock(
+                    expanded = state.promoExpanded,
+                    code = state.promoCodeInput,
+                    onToggle = vm::togglePromoExpanded,
+                    onChange = vm::setPromoCode,
+                )
                 FmbPrimaryButton(
                     text = ctaLabel,
                     onClick = vm::confirm,
@@ -484,6 +502,78 @@ private fun SlotsGrid(
                     Box(modifier = Modifier.weight(1f))
                 }
             }
+        }
+    }
+}
+
+/**
+ * Collapsible promo-code input above the Confirm CTA. Default-collapsed so
+ * the screen isn't visually noisy for the common case (no promo). The
+ * actual validation happens server-side on `create()` — if the code is
+ * wrong, the SlotPickerViewModel surfaces the backend's error message.
+ */
+@Composable
+private fun PromoCodeBlock(
+    expanded: Boolean,
+    code: String,
+    onToggle: () -> Unit,
+    onChange: (String) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(MaterialTheme.colorScheme.surface)
+            .border(1.dp, FmbMintEdge, RoundedCornerShape(14.dp)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Filled.LocalOffer,
+                contentDescription = null,
+                tint = FmbBlue700,
+                modifier = Modifier.size(18.dp),
+            )
+            Text(
+                text = if (code.isNotBlank() && !expanded) "Promo: $code" else "Have a promo code?",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = FmbBlue900,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                contentDescription = if (expanded) "Hide" else "Show",
+                tint = FmbNeutral700,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        if (expanded) {
+            Box(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { onChange(it.trim().uppercase()) },
+                    placeholder = { Text("WELCOME10", fontSize = 13.sp) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = FmbBlue500,
+                        unfocusedBorderColor = FmbMintEdge,
+                    ),
+                )
+            }
+            Text(
+                "Codes are checked when you tap Confirm.",
+                fontSize = 11.sp,
+                color = FmbNeutral700,
+                modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp),
+            )
         }
     }
 }

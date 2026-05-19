@@ -30,6 +30,13 @@ data class SlotPickerUiState(
     val booking: Booking? = null,
     val confirming: Boolean = false,
     val error: String? = null,
+    // Promo-code state. The user types into `promoCodeInput` and hits the
+    // confirm button — the code is sent server-side which is the source
+    // of truth for whether it's valid. On success the booking DTO comes
+    // back with discountAed > 0 + promoCode populated; on failure we get
+    // a 4xx and surface its message via `error`.
+    val promoCodeInput: String = "",
+    val promoExpanded: Boolean = false,
 )
 
 @HiltViewModel
@@ -85,13 +92,28 @@ class SlotPickerViewModel @Inject constructor(
         if (slot.available) _state.update { it.copy(selectedSlot = slot) }
     }
 
+    fun setPromoCode(value: String) {
+        _state.update { it.copy(promoCodeInput = value, error = null) }
+    }
+
+    fun togglePromoExpanded() {
+        _state.update { it.copy(promoExpanded = !it.promoExpanded) }
+    }
+
     fun confirm() {
         val s = _state.value
         val service = s.selectedService ?: return
         val slot = s.selectedSlot ?: return
         _state.update { it.copy(confirming = true, error = null) }
         viewModelScope.launch {
-            runCatching { bookings.create(vendorId, service.id, slot.startsAt) }
+            runCatching {
+                bookings.create(
+                    vendorId = vendorId,
+                    serviceId = service.id,
+                    slotStartIso = slot.startsAt,
+                    promoCode = s.promoCodeInput.trim().ifEmpty { null },
+                )
+            }
                 .onSuccess { booking -> _state.update { it.copy(confirming = false, booking = booking) } }
                 .onFailure { e -> _state.update { it.copy(confirming = false, error = e.message ?: "Couldn't confirm booking") } }
         }
