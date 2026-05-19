@@ -20,6 +20,26 @@ const schema = z.object({
   OTP_RESEND_COOLDOWN_SEC: z.coerce.number().int().nonnegative().default(30),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
 
+  // Email delivery for password reset + email verification.
+  //   console  — log the email body to stdout (dev / preview)
+  //   postmark — use Postmark's transactional API (POSTMARK_TOKEN required)
+  // Postmark picked over SendGrid because the free tier (100 emails/day on
+  // Postmark, 100 emails/day on SendGrid) is identical and Postmark's
+  // API is much simpler. Swap providers later by adding a case in
+  // src/lib/email.ts; the call sites are abstracted.
+  EMAIL_DELIVERY: z.enum(['console', 'postmark']).default('console'),
+  POSTMARK_TOKEN: z.string().optional().default(''),
+  // The "From" address on all outbound mail. Must be a verified sender
+  // domain in Postmark. Falls back to a noreply@ on the configured
+  // marketing domain so dev doesn't need a separate variable.
+  EMAIL_FROM: z.string().email().default('noreply@findmybay.ae'),
+  EMAIL_FROM_NAME: z.string().default('Find My Bay'),
+  // Public URL of the vendor admin SPA — used in password-reset + email
+  // verification links. Already set via VENDOR_ADMIN_URL above; kept
+  // here as the canonical alias for email-link composition.
+  // Customer-app email links use the same domain — Android intercepts
+  // them via App Links once registered.
+
   CORS_ORIGINS: z.string().default('*'),
 
   // Public URL of the vendor-admin SPA (used to build staff-invite accept URLs).

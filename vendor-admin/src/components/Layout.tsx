@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { getMe } from '../api/admin';
 import { useAuth } from '../store/auth';
+import { VerifyEmailBanner } from './VerifyEmailBanner';
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
@@ -23,7 +24,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
           role={data?.role}
           onLogout={handleLogout}
         />
-        <main className="flex-1 p-8">{children}</main>
+        <main className="flex-1 p-8">
+          <VerifyEmailBanner />
+          {children}
+        </main>
       </div>
     </div>
   );
@@ -81,6 +85,7 @@ function Sidebar({
         <NavItem to="/promotions" label="Promotions" icon={<PromotionsIcon />} />
         <NavItem to="/finance" label="Finance" icon={<FinanceIcon />} />
         <NavItem to="/inventory" label="Inventory" icon={<InventoryIcon />} />
+        <NavItem to="/loyalty" label="Loyalty" icon={<LoyaltyIcon />} />
         <NavItem to="/staff" label="Staff" icon={<StaffIcon />} />
         <NavItem to="/reviews" label="Reviews" icon={<ReviewsIcon />} />
         <NavItem to="/brand" label="Brand & branch" icon={<BrandIcon />} />
@@ -267,6 +272,16 @@ function PromotionsIcon() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" />
+    </svg>
+  );
+}
+
+function LoyaltyIcon() {
+  // Award / medal glyph
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="6" />
+      <path d="M8.21 13.89 7 22l5-3 5 3-1.21-8.12" />
     </svg>
   );
 }

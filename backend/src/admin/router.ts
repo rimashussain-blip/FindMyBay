@@ -17,6 +17,7 @@ import { emitBayUpdate, emitBookingStatus, emitVendorBookingChanged } from '../r
 import { sendWashCompletePush } from '../notify/washComplete.js';
 import { priceLineFromService } from '../lib/vat.js';
 import { assignInvoiceNumber } from '../lib/invoice.js';
+import { loadLoyaltyForCustomers } from '../lib/loyalty.js';
 
 export const adminRouter = Router();
 
@@ -282,6 +283,14 @@ adminRouter.get(
       },
     });
 
+    // Loyalty: fetch tiers for every registered customer in one batch.
+    // Walk-ins (customerId=null) are skipped — they always render as
+    // first-time / Bronze in the UI.
+    const customerIds = bookings
+      .map((b) => b.customer?.id)
+      .filter((id): id is string => !!id);
+    const loyaltyById = await loadLoyaltyForCustomers(customerIds, req.vendor!.id);
+
     res.json({
       items: bookings.map((b) => ({
         id: b.id,
@@ -292,19 +301,22 @@ adminRouter.get(
         vatAed: b.vatAed,
         invoiceNumber: b.invoiceNumber,
         isWalkIn: b.isWalkIn,
-        // For registered customers we surface their User row. For walk-ins
-        // we surface whatever name/phone the vendor staff captured — the
-        // SPA can render either shape uniformly.
+        // For registered customers we surface their User row + loyalty
+        // tier (computed from completed-booking history). Walk-ins use
+        // whatever name/phone staff captured at the desk and stay
+        // tier-less (the SPA renders no badge for those).
         customer: b.customer
           ? {
               id: b.customer.id,
               phone: b.customer.phone,
               fullName: b.customer.fullName,
+              loyalty: loyaltyById.get(b.customer.id) ?? null,
             }
           : {
               id: null,
               phone: b.walkInPhone,
               fullName: b.walkInName,
+              loyalty: null,
             },
         service: b.service,
         bay: b.bay,

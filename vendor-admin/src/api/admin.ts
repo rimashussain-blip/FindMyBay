@@ -52,6 +52,14 @@ export interface AdminService {
   vatInclusive: boolean;
 }
 
+export interface AdminBookingLoyalty {
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum';
+  lifetimeBookings: number;
+  lifetimeSpendAed: number;
+  bookingsAtVendor?: number;
+  lastBookingAt: string | null;
+}
+
 export interface AdminBooking {
   id: string;
   status: string;
@@ -63,7 +71,13 @@ export interface AdminBooking {
   // For walk-ins, customer.id is null and customer.fullName / phone come from
   // the walkInName / walkInPhone fields captured at the desk.
   isWalkIn?: boolean;
-  customer: { id: string | null; phone: string | null; fullName: string | null };
+  customer: {
+    id: string | null;
+    phone: string | null;
+    fullName: string | null;
+    // Loyalty tier + visit counts. Null for walk-ins (no customerId).
+    loyalty?: AdminBookingLoyalty | null;
+  };
   service: { id: string; name: string; durationMin: number; priceAed: number };
   bay: { id: string; name: string };
 }

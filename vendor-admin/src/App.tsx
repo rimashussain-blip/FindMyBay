@@ -17,6 +17,10 @@ import StaffPage from './pages/StaffPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
 import FinancePage from './pages/FinancePage';
 import InventoryPage from './pages/InventoryPage';
+import LoyaltyPage from './pages/LoyaltyPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import PlatformVendorsPage from './pages/PlatformVendorsPage';
 import PlatformNewVendorPage from './pages/PlatformNewVendorPage';
 import PlatformVendorDetailPage from './pages/PlatformVendorDetailPage';
@@ -42,6 +46,12 @@ export default function App() {
     <AuthBootstrap>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Password reset + email verification — all public so links from
+            email work without a session. The reset page issues fresh tokens
+            on success so the user lands signed in. */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
         {/* Accept-invite is public-ish — the page itself prompts the user to
             sign in if they don't have a session, then completes the accept.
             Kept outside the Protected wrap so a brand-new user can preview
@@ -85,6 +95,7 @@ function VendorShell() {
         <Route path="/promotions" element={<PromotionsPage />} />
         <Route path="/finance" element={<FinancePage />} />
         <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/loyalty" element={<LoyaltyPage />} />
         <Route path="/staff" element={<StaffPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/scan" element={<ScanCheckinPage />} />

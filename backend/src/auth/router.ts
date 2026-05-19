@@ -8,7 +8,17 @@ import { prisma } from '../config/db.js';
 import { asyncHandler, HttpError } from '../lib/error.js';
 import { logger } from '../lib/logger.js';
 import { requireAuth } from './middleware.js';
-import { loginWithEmail, refreshSession, registerWithEmail, requestOtp, verifyOtp } from './service.js';
+import {
+  completePasswordReset,
+  consumeEmailVerification,
+  loginWithEmail,
+  refreshSession,
+  registerWithEmail,
+  requestOtp,
+  requestPasswordReset,
+  sendEmailVerification,
+  verifyOtp,
+} from './service.js';
 import { loginWithGoogle } from './google.js';
 import { loginWithApple } from './apple.js';
 
@@ -74,6 +84,69 @@ authRouter.post(
     const body = loginBody.parse(req.body);
     const result = await loginWithEmail(body);
     res.json(result);
+  }),
+);
+
+// ── Password reset ────────────────────────────────────────────────────────
+//
+// Step 1: user POSTs their email. We respond 200 regardless of whether the
+// email exists, to avoid leaking account existence to a scraper.
+// Step 2: user clicks the email link and POSTs the new password + token.
+// On success we issue fresh access/refresh tokens so they land signed in.
+
+const forgotBody = z.object({ email: z.string().email() });
+const resetBody = z.object({
+  token: z.string().min(20).max(512),
+  newPassword: z.string().min(8).max(128),
+});
+
+authRouter.post(
+  '/password/forgot',
+  asyncHandler(async (req, res) => {
+    const { email } = forgotBody.parse(req.body);
+    await requestPasswordReset(email);
+    // Same response shape whether the email exists or not.
+    res.json({ ok: true });
+  }),
+);
+
+authRouter.post(
+  '/password/reset',
+  asyncHandler(async (req, res) => {
+    const { token, newPassword } = resetBody.parse(req.body);
+    const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim()
+      ?? req.socket.remoteAddress
+      ?? null;
+    const result = await completePasswordReset({ token, newPassword, ip });
+    res.json(result);
+  }),
+);
+
+// ── Email verification ────────────────────────────────────────────────────
+//
+// `/email/verify/send` is auth-required: the caller is asking us to email
+// THEIR address (or resend if the first link expired). `/email/verify`
+// is public — anyone with the token can complete verification, which is
+// fine because the token IS the proof of email ownership.
+
+const verifyBodyEmail = z.object({ token: z.string().min(20).max(512) });
+
+authRouter.post(
+  '/email/verify/send',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw new HttpError(401, 'Auth required');
+    await sendEmailVerification(req.user.id);
+    res.json({ ok: true });
+  }),
+);
+
+authRouter.post(
+  '/email/verify',
+  asyncHandler(async (req, res) => {
+    const { token } = verifyBodyEmail.parse(req.body);
+    const result = await consumeEmailVerification(token);
+    res.json({ ok: true, email: result.email });
   }),
 );
 
@@ -151,6 +224,9 @@ authRouter.get(
       email: user.email,
       fullName: user.fullName,
       role: user.role,
+      // ISO timestamp the user clicked "Verify your email"; null if still
+      // unverified. SPA + Android show a verification banner while null.
+      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
       // Customer car profile — Android uses these to decide whether to
       // show the first-run onboarding sheet. profileComplete is the cheap
       // boolean the client actually checks (true once phone + carType +

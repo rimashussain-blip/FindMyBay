@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getTodayBookings, setBookingStatus } from '../api/admin';
+import { TierBadge, visitCounter } from '../components/TierBadge';
 
 const STATUS_LABEL: Record<string, string> = {
   pending_payment: 'Pending payment',
@@ -65,15 +66,29 @@ export default function BookingsPage() {
               <tr key={b.id} className="border-t border-mint-edge">
                 <td className="px-4 py-3 font-medium text-ink">{formatTime(b.slotStart)}</td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2 text-ink">
+                  <div className="flex items-center gap-2 text-ink flex-wrap">
                     {b.customer.fullName ?? '—'}
                     {b.isWalkIn && (
                       <span className="rounded-full bg-amber/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-ink">
                         Walk-in
                       </span>
                     )}
+                    {b.customer.loyalty && (
+                      <TierBadge tier={b.customer.loyalty.tier} size="sm" />
+                    )}
                   </div>
-                  <div className="text-[11px] text-ink-soft">{b.customer.phone ?? '—'}</div>
+                  <div className="text-[11px] text-ink-soft">
+                    {b.customer.phone ?? '—'}
+                    {b.customer.loyalty && (
+                      <span className="ml-2 text-primary-deep">
+                        ·{' '}
+                        {visitCounter({
+                          lifetimeBookings: b.customer.loyalty.lifetimeBookings,
+                          bookingsAtVendor: b.customer.loyalty.bookingsAtVendor,
+                        })}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   <div className="text-ink">{b.service.name}</div>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { login, register } from '../api/auth';
 import { useAuth, type UserRole } from '../store/auth';
+import { PasswordStrengthBar } from '../components/PasswordStrength';
 
 type Mode = 'login' | 'register';
 
@@ -150,9 +151,22 @@ export default function LoginPage() {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
               {mode === 'register' && (
-                <p className="mt-1.5 text-xs text-ink-soft">
-                  At least 8 characters. We hash your password with bcrypt before storing.
-                </p>
+                <>
+                  <PasswordStrengthBar password={password} />
+                  <p className="mt-1.5 text-xs text-ink-soft">
+                    At least 8 characters. We hash your password with bcrypt before storing.
+                  </p>
+                </>
+              )}
+              {mode === 'login' && (
+                <div className="mt-1.5 text-right">
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs text-primary-deep hover:underline"
+                  >
+                    Forgot your password?
+                  </Link>
+                </div>
               )}
             </div>
 

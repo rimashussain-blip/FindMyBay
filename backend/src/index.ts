@@ -20,6 +20,7 @@ import { promotionsRouter } from './admin/promotions.js';
 import { staffRouter, staffPublicRouter } from './admin/staff.js';
 import { financeRouter } from './admin/finance.js';
 import { inventoryRouter } from './admin/inventory.js';
+import { loyaltyRouter } from './admin/loyalty.js';
 import { bookingPayRouter, paymentRouter } from './payment/router.js';
 import { publicRouter } from './public/router.js';
 import { startAlertWorker } from './alert/service.js';
@@ -64,6 +65,8 @@ app.use('/admin', staffRouter);
 app.use('/admin', financeRouter);
 // Inventory — products catalog + stock movements.
 app.use('/admin', inventoryRouter);
+// Loyalty — derived tiers + per-vendor customer roster.
+app.use('/admin', loyaltyRouter);
 app.use('/admin', adminRouter);
 // Public invite accept flow (auth-only, no vendor membership required).
 app.use('/staff', staffPublicRouter);
