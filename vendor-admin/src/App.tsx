@@ -12,6 +12,11 @@ import ServicesPage from './pages/ServicesPage';
 import ScanCheckinPage from './pages/ScanCheckinPage';
 import ReviewsPage from './pages/ReviewsPage';
 import WalkInPage from './pages/WalkInPage';
+import PromotionsPage from './pages/PromotionsPage';
+import StaffPage from './pages/StaffPage';
+import AcceptInvitePage from './pages/AcceptInvitePage';
+import FinancePage from './pages/FinancePage';
+import InventoryPage from './pages/InventoryPage';
 import PlatformVendorsPage from './pages/PlatformVendorsPage';
 import PlatformNewVendorPage from './pages/PlatformNewVendorPage';
 import PlatformVendorDetailPage from './pages/PlatformVendorDetailPage';
@@ -37,6 +42,11 @@ export default function App() {
     <AuthBootstrap>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Accept-invite is public-ish — the page itself prompts the user to
+            sign in if they don't have a session, then completes the accept.
+            Kept outside the Protected wrap so a brand-new user can preview
+            the invite before having an account. */}
+        <Route path="/accept-invite/:token" element={<AcceptInvitePage />} />
 
         <Route
           path="/platform/*"
@@ -72,6 +82,10 @@ function VendorShell() {
         <Route path="/bays" element={<BayBoardPage />} />
         <Route path="/bookings" element={<BookingsPage />} />
         <Route path="/walk-in" element={<WalkInPage />} />
+        <Route path="/promotions" element={<PromotionsPage />} />
+        <Route path="/finance" element={<FinancePage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/staff" element={<StaffPage />} />
         <Route path="/services" element={<ServicesPage />} />
         <Route path="/scan" element={<ScanCheckinPage />} />
         <Route path="/reviews" element={<ReviewsPage />} />

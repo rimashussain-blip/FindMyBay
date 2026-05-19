@@ -316,10 +316,13 @@ async function fireAlert(alertId: string, booking: any, etaSeconds: number) {
 }
 
 function formatHm(d: Date): string {
-  // UAE local (GMT+4) HH:mm.
+  // UAE local (GMT+4) 12-hour wall-clock, e.g. "9:05 AM" / "1:30 PM".
   const utcHour = d.getUTCHours();
-  const uaeHour = (utcHour + 4) % 24;
-  return `${String(uaeHour).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  const uaeHour24 = (utcHour + 4) % 24;
+  const hour12 = uaeHour24 % 12 === 0 ? 12 : uaeHour24 % 12;
+  const period = uaeHour24 < 12 ? 'AM' : 'PM';
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${hour12}:${minutes} ${period}`;
 }
 
 // ---------- Worker loop ----------

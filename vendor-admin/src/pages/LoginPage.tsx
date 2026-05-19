@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { login, register } from '../api/auth';
 import { useAuth, type UserRole } from '../store/auth';
 
@@ -14,6 +14,10 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const setSession = useAuth((s) => s.setSession);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // If a staff invite redirected here, send the user back to /accept-invite/...
+  // after sign-in so they can complete acceptance without re-pasting the URL.
+  const returnTo = searchParams.get('returnTo');
 
   async function submit() {
     setError(null);
@@ -33,9 +37,15 @@ export default function LoginPage() {
         userId: res.user.id,
         role,
       });
-      // Platform admins land on the vendor approval queue; vendor staff go
-      // to their bay board as before.
-      navigate(role === 'admin' ? '/platform/vendors' : '/bays', { replace: true });
+      // Honor ?returnTo= (used by the staff-invite flow) before role-based
+      // defaults. Only allow same-origin paths to avoid open-redirect abuse.
+      if (returnTo && returnTo.startsWith('/')) {
+        navigate(returnTo, { replace: true });
+      } else {
+        // Platform admins land on the vendor approval queue; vendor staff go
+        // to their bay board as before.
+        navigate(role === 'admin' ? '/platform/vendors' : '/bays', { replace: true });
+      }
     } catch (e: unknown) {
       setError(extractError(e));
     } finally {

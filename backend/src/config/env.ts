@@ -22,6 +22,11 @@ const schema = z.object({
 
   CORS_ORIGINS: z.string().default('*'),
 
+  // Public URL of the vendor-admin SPA (used to build staff-invite accept URLs).
+  // e.g. https://admin.findmybay.ae — owner copies the resulting URL and shares
+  // it manually with the invitee until Batch D ships email delivery.
+  VENDOR_ADMIN_URL: z.string().url().optional(),
+
   // Maps & push (optional in dev; mock providers used when not set)
   GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
   // For local dev: point at a service-account JSON file on disk.

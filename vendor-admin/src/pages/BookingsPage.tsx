@@ -154,14 +154,15 @@ function ActionButton({
 }
 
 function formatTime(iso: string): string {
-  // Show date + time when the row spans multiple days. Today renders just HH:mm.
+  // Show date + time when the row spans multiple days. Today renders just
+  // the 12-hour time (e.g. "9:05 AM"); other days prepend a weekday/date.
   const d = new Date(iso);
   const now = new Date();
   const sameDay =
     d.getFullYear() === now.getFullYear() &&
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
-  const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
   if (sameDay) return time;
   const day = d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   return `${day} · ${time}`;

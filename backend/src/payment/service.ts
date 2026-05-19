@@ -17,6 +17,7 @@ import { logger } from '../lib/logger.js';
 import { scheduleAlertForBooking } from '../alert/service.js';
 import { emitBookingStatus, emitVendorBookingChanged } from '../realtime/server.js';
 import { getPaymentProcessor } from './processors/index.js';
+import { assignInvoiceNumber } from '../lib/invoice.js';
 
 export interface IntentDto {
   paymentRef: string;
@@ -194,6 +195,11 @@ export async function confirmPayment(input: {
       where: { id: payment.bookingId },
       data: { status: 'confirmed' },
     });
+    // Money has cleared at the processor — claim the FTA-compliant invoice
+    // number now so a customer-facing receipt is available immediately.
+    // Same transaction as the status flip so we never end up with a
+    // confirmed booking that's missing an invoice (or vice versa).
+    await assignInvoiceNumber(tx, updatedBooking.vendorId, updatedBooking.id);
 
     return {
       paymentStatus: 'succeeded',

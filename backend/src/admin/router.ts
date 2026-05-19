@@ -15,6 +15,8 @@ import { parseQrString, verifyCheckinToken } from '../booking/qr.js';
 import { logger } from '../lib/logger.js';
 import { emitBayUpdate, emitBookingStatus, emitVendorBookingChanged } from '../realtime/server.js';
 import { sendWashCompletePush } from '../notify/washComplete.js';
+import { priceLineFromService } from '../lib/vat.js';
+import { assignInvoiceNumber } from '../lib/invoice.js';
 
 export const adminRouter = Router();
 
@@ -41,6 +43,7 @@ adminRouter.get(
         emirate: String(vendor.emirate),
         addressLine: vendor.addressLine,
         tradeLicenseNo: vendor.tradeLicenseNo,
+        trnNumber: vendor.trnNumber,
         lat: vendor.lat,
         lng: vendor.lng,
         logoUrl: vendor.logoUrl,
@@ -87,6 +90,10 @@ const updateBrandBody = z.object({
   brandName: z.string().min(1).max(120).optional(),
   addressLine: z.string().max(200).nullable().optional(),
   tradeLicenseNo: z.string().max(80).nullable().optional(),
+  // UAE Tax Registration Number — 15 digits exactly per FTA. Accept any
+  // string up to 20 chars so we don't reject inputs with hyphens/spaces;
+  // surface a friendlier error than zod's default when format is wrong.
+  trnNumber: z.string().max(20).nullable().optional(),
   city: z.string().min(1).max(80).optional(),
   emirate: z.enum(['AbuDhabi', 'Dubai', 'Sharjah', 'Ajman', 'UmmAlQuwain', 'RasAlKhaimah', 'Fujairah']).optional(),
   lat: z.number().min(-90).max(90).optional(),
@@ -142,6 +149,7 @@ adminRouter.patch(
       emirate: String(updated.emirate),
       addressLine: updated.addressLine,
       tradeLicenseNo: updated.tradeLicenseNo,
+      trnNumber: updated.trnNumber,
       lat: updated.lat,
       lng: updated.lng,
       logoUrl: updated.logoUrl,
@@ -281,6 +289,8 @@ adminRouter.get(
         slotStart: b.slotStart.toISOString(),
         slotEnd: b.slotEnd.toISOString(),
         totalAed: b.totalAed,
+        vatAed: b.vatAed,
+        invoiceNumber: b.invoiceNumber,
         isWalkIn: b.isWalkIn,
         // For registered customers we surface their User row. For walk-ins
         // we surface whatever name/phone the vendor staff captured — the
@@ -386,6 +396,7 @@ adminRouter.post(
     // bay flips to busy.
     const initialStatus = isStartingNow ? 'in_progress' : 'confirmed';
 
+    const { totalAed, vatAed } = priceLineFromService(service.priceAed, service.vatInclusive);
     const result = await prisma.$transaction(async (tx) => {
       const booking = await tx.booking.create({
         data: {
@@ -395,13 +406,18 @@ adminRouter.post(
           slotStart,
           slotEnd,
           status: initialStatus,
-          totalAed: service.priceAed,
+          totalAed,
+          vatAed,
           isWalkIn: true,
           walkInName: body.walkInName ?? null,
           walkInPhone: body.walkInPhone ?? null,
           // customerId stays null
         },
       });
+      // Walk-ins are paid in cash at the desk — assign the FTA invoice
+      // number immediately so the staff can print/quote a compliant
+      // receipt before the customer leaves.
+      await assignInvoiceNumber(tx, vendorId, booking.id);
       if (isStartingNow) {
         await tx.bay.update({ where: { id: bay.id }, data: { status: 'busy' } });
       }
@@ -428,6 +444,8 @@ adminRouter.post(
       slotStart: result.slotStart.toISOString(),
       slotEnd: result.slotEnd.toISOString(),
       totalAed: result.totalAed,
+      vatAed: result.vatAed,
+      invoiceNumber: result.invoiceNumber,
       isWalkIn: true,
       customer: { id: null, phone: result.walkInPhone, fullName: result.walkInName },
       bay: { id: bay.id, name: bay.name },
@@ -490,9 +508,36 @@ adminRouter.get(
           slotStart: true,
           slotEnd: true,
           status: true,
+          totalAed: true,
+          vatAed: true,
+          invoiceNumber: true,
           isWalkIn: true,
           walkInName: true,
-          customer: { select: { fullName: true } },
+          walkInPhone: true,
+          // Customer detail block — surfaced on the hover/click customer
+          // card in the walk-in scheduler so the attendant sees the plate
+          // they're expecting without leaving the page. Walk-ins don't have
+          // a customer row (customer = null) and we don't capture car details
+          // for them either; those fall back to null on the response.
+          customer: {
+            select: {
+              fullName: true,
+              phone: true,
+              carMake: true,
+              carType: true,
+              carColor: true,
+              carPlate: true,
+            },
+          },
+          service: { select: { name: true } },
+          // Pull the most-recent Payment row so the SPA can render
+          // "paid" vs "unpaid" on the slot pill. Walk-ins have no Payment
+          // row (paid in person), which the SPA renders as "cash".
+          payments: {
+            select: { status: true },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
         },
         orderBy: { slotStart: 'asc' },
       }),
@@ -525,8 +570,28 @@ adminRouter.get(
         slotStart: b.slotStart.toISOString(),
         slotEnd: b.slotEnd.toISOString(),
         status: String(b.status),
+        totalAed: b.totalAed,
+        vatAed: b.vatAed,
+        invoiceNumber: b.invoiceNumber,
         isWalkIn: b.isWalkIn,
         customerName: b.customer?.fullName ?? b.walkInName ?? null,
+        // Phone + car details for the hover/click customer card. Walk-ins
+        // surface whatever phone the staff captured at the desk; car
+        // details stay null because we don't capture them in V1.
+        customerPhone: b.customer?.phone ?? b.walkInPhone ?? null,
+        carMake: b.customer?.carMake ?? null,
+        carType: b.customer?.carType ? String(b.customer.carType) : null,
+        carColor: b.customer?.carColor ?? null,
+        carPlate: b.customer?.carPlate ?? null,
+        serviceName: b.service.name,
+        // Walk-ins are paid in person and have no Payment row in V1 →
+        // 'cash'. App bookings reflect their latest Payment row's status,
+        // collapsed into a binary 'paid' / 'unpaid' for the slot pill.
+        paymentMethod: b.isWalkIn
+          ? ('cash' as const)
+          : b.payments[0]?.status === 'succeeded'
+            ? ('paid' as const)
+            : ('unpaid' as const),
       })),
     });
   }),

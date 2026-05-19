@@ -14,6 +14,8 @@ const createBody = z.object({
   vendorId: z.string().min(1),
   serviceId: z.string().min(1),
   slotStart: z.string().min(1), // ISO 8601
+  /** Optional promo code, e.g. "AUTO20". Validated + applied server-side. */
+  promoCode: z.string().min(2).max(20).optional(),
 });
 
 bookingRouter.post(
@@ -21,12 +23,13 @@ bookingRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     if (!req.user) throw new HttpError(401, 'Auth required');
-    const { vendorId, serviceId, slotStart } = createBody.parse(req.body);
+    const { vendorId, serviceId, slotStart, promoCode } = createBody.parse(req.body);
     const booking = await createBooking({
       customerId: req.user.id,
       vendorId,
       serviceId,
       slotStartIso: slotStart,
+      promoCode,
     });
     res.status(201).json(booking);
   }),
@@ -184,6 +187,11 @@ bookingRouter.get(
       vendorName: booking.vendor.brandName,
       vendorLogoUrl: booking.vendor.logoUrl,
       bayName: booking.bay?.name ?? null,
+      // FTA invoice line surfaced on the QR screen so the customer can read
+      // it back if asked. Null while the booking is still pending payment.
+      invoiceNumber: booking.invoiceNumber,
+      vatAed: booking.vatAed,
+      totalAed: booking.totalAed,
       carMake: booking.customer?.carMake ?? null,
       carType: booking.customer?.carType ?? null,
       carColor: booking.customer?.carColor ?? null,

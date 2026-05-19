@@ -85,7 +85,7 @@ $stagingRoot = Join-Path $env:TEMP ("fmb-marketing-deploy-" + [guid]::NewGuid().
 $staging     = Join-Path $stagingRoot 'app'
 Write-Host "==> Staging to $staging" -ForegroundColor Cyan
 New-Item -ItemType Directory -Path $staging -Force | Out-Null
-Copy-Item (Join-Path $siteDir 'index.html') $staging
+Copy-Item (Join-Path $siteDir '*.html') $staging
 if (Test-Path (Join-Path $siteDir 'assets')) {
     Copy-Item (Join-Path $siteDir 'assets') $staging -Recurse
 }

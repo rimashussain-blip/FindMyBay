@@ -30,8 +30,8 @@ android {
         applicationId = "ae.findmybay"
         minSdk = 28
         targetSdk = 34
-        versionCode = 2
-        versionName = "0.2.0"
+        versionCode = 6
+        versionName = "0.2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

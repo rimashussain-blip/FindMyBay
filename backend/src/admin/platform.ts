@@ -492,6 +492,8 @@ platformRouter.get(
         slotStart: b.slotStart.toISOString(),
         slotEnd: b.slotEnd.toISOString(),
         totalAed: b.totalAed,
+        vatAed: b.vatAed,
+        invoiceNumber: b.invoiceNumber,
         vendor: { id: b.vendor.id, brandName: b.vendor.brandName, city: b.vendor.city },
         service: { id: b.service.id, name: b.service.name },
         createdAt: b.createdAt.toISOString(),

@@ -150,25 +150,48 @@ model Vendor {
   // null means closed for that day. Optional — vendors set this on Brand &
   // Branch; if absent, customer detail screens fall back to "Hours not set".
   hours           Json?        @map("hours")
+  // UAE Tax Registration Number — 15-digit identifier issued by the FTA.
+  // Required on VAT-compliant tax invoices; optional during onboarding
+  // until the vendor is ready to issue compliant receipts.
+  trnNumber       String?      @map("trn_number")
+  // Monotonically-increasing counter for invoice numbers per FTA rules
+  // (sequential, non-skipped). Atomically incremented when a booking is
+  // confirmed/paid via [assignInvoiceNumber]. The just-claimed number is
+  // the post-increment value (so the first invoice ever issued = 1).
+  lastInvoiceSeq  Int          @default(0) @map("last_invoice_seq")
+  // Per-vendor credit-note counter, mirrors lastInvoiceSeq. FTA treats
+  // credit notes as a parallel sequence with the same monotonicity rules
+  // (no skips). Atomically incremented when a Refund row is recorded.
+  lastCreditNoteSeq Int        @default(0) @map("last_credit_note_seq")
   createdAt       DateTime     @default(now()) @map("created_at")
   updatedAt       DateTime     @updatedAt @map("updated_at")
   deletedAt       DateTime?    @map("deleted_at")
 
-  bays     Bay[]
-  services Service[]
-  bookings Booking[]
-  members  VendorMember[]
+  bays         Bay[]
+  services     Service[]
+  bookings     Booking[]
+  members      VendorMember[]
+  promotions   Promotion[]
+  staffInvites StaffInvite[]
+  refunds      Refund[]
+  products     Product[]
+  stockMoves   StockMovement[]
 
   @@index([emirate, city])
   @@map("vendors")
 }
 
 model VendorMember {
-  id        String           @id @default(cuid())
-  userId    String           @map("user_id")
-  vendorId  String           @map("vendor_id")
-  role      VendorMemberRole @default(owner)
-  createdAt DateTime         @default(now()) @map("created_at")
+  id        String              @id @default(cuid())
+  userId    String              @map("user_id")
+  vendorId  String              @map("vendor_id")
+  role      VendorMemberRole    @default(owner)
+  // Soft-suspend a staff member without losing their VendorMember row:
+  // their role middleware-check fails while status='suspended', but their
+  // historical bookings + audit trail stay intact and the owner can
+  // reactivate later. 'active' is the default for all existing members.
+  status    VendorMemberStatus  @default(active)
+  createdAt DateTime            @default(now()) @map("created_at")
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
@@ -182,6 +205,45 @@ enum VendorMemberRole {
   owner
   manager
   attendant
+}
+
+enum VendorMemberStatus {
+  active
+  suspended
+}
+
+// Staff invites — owner adds a teammate by email + role; backend creates
+// a StaffInvite row with a single-use token. The link lands on the
+// vendor admin's /accept-invite/:token page; the invitee signs in (or
+// signs up) and the backend then creates a VendorMember and marks the
+// invite accepted. Open invites expire 14 days after creation by
+// convention (enforced at accept time, not auto-pruned).
+model StaffInvite {
+  id            String             @id @default(cuid())
+  vendorId      String             @map("vendor_id")
+  email         String
+  role          VendorMemberRole
+  token         String             @unique
+  invitedById   String?            @map("invited_by_id")
+  status        StaffInviteStatus  @default(pending)
+  expiresAt     DateTime           @map("expires_at")
+  acceptedAt    DateTime?          @map("accepted_at")
+  acceptedById  String?            @map("accepted_by_id")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt      @map("updated_at")
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, status])
+  @@index([email])
+  @@map("staff_invites")
+}
+
+enum StaffInviteStatus {
+  pending
+  accepted
+  revoked
+  expired
 }
 
 enum Emirate {
@@ -270,6 +332,25 @@ model Booking {
   slotEnd    DateTime      @map("slot_end")
   status     BookingStatus @default(pending_payment)
   totalAed   Int           @map("total_aed")
+  // VAT component of totalAed in whole AED. Computed at booking creation
+  // time from the Service's vatInclusive flag and the UAE standard rate
+  // (5%). Stored explicitly so historical reports don't drift if rates
+  // ever change or services are retired/renamed.
+  vatAed     Int           @default(0) @map("vat_aed")
+  // FTA-compliant sequential invoice number, scoped to the vendor.
+  // Assigned when the booking transitions to a billable state — for app
+  // bookings that's payment success, for walk-ins that's booking creation
+  // (cash is collected at the desk). Unique platform-wide so it can be
+  // quoted on receipts and reconciled. NULL while pending payment.
+  invoiceNumber String?    @unique @map("invoice_number")
+
+  // Promotion fields. `promotionId` points at the Promotion that was
+  // applied at booking-create time (validated server-side + atomic vs
+  // usageLimit). `discountAed` is the amount knocked off — stored
+  // explicitly so the receipt line + dashboards stay accurate even if
+  // the promo is later edited or archived.
+  promotionId String? @map("promotion_id")
+  discountAed Int     @default(0) @map("discount_aed")
 
   // Walk-in metadata. `isWalkIn = true` means this row was created via the
   // walk-in flow (POST /admin/walk-in) — vendor staff captured whatever
@@ -283,16 +364,20 @@ model Booking {
   createdAt  DateTime      @default(now()) @map("created_at")
   updatedAt  DateTime      @updatedAt @map("updated_at")
 
-  customer User?   @relation(fields: [customerId], references: [id])
-  vendor   Vendor  @relation(fields: [vendorId], references: [id])
-  bay      Bay     @relation(fields: [bayId], references: [id])
-  service  Service @relation(fields: [serviceId], references: [id])
-  alerts   Alert[]
-  review   Review?
-  payments Payment[]
+  customer    User?       @relation(fields: [customerId], references: [id])
+  vendor      Vendor      @relation(fields: [vendorId], references: [id])
+  bay         Bay         @relation(fields: [bayId], references: [id])
+  service     Service     @relation(fields: [serviceId], references: [id])
+  promotion   Promotion?  @relation(fields: [promotionId], references: [id], onDelete: SetNull)
+  alerts      Alert[]
+  review      Review?
+  payments    Payment[]
+  redemptions PromotionRedemption[]
+  refunds     Refund[]
 
   @@index([customerId])
   @@index([vendorId, slotStart])
+  @@index([promotionId])
   @@map("bookings")
 }
 
@@ -330,6 +415,154 @@ enum PaymentStatus {
   succeeded
   failed
   cancelled
+}
+
+// -------------------------------------------------------------
+// Refunds — vendor-side recording of money returned to a customer.
+// -------------------------------------------------------------
+//
+// V1 keeps refunds out-of-band: the vendor staff issues the actual refund
+// via their card terminal / cash drawer / processor portal, then records
+// the act here so the finance dashboard, VAT summary, and credit-note
+// trail stay accurate. The processor-side reversal isn't automated yet —
+// that lives in Batch B+ (Telr refund API integration).
+//
+// Each Refund mints a sequential credit-note number per vendor (FTA
+// requires credit notes to be sequential and unique, like invoices).
+// A booking can have multiple refund rows (multiple partial refunds);
+// they're capped at the booking's totalAed by [recordRefund].
+model Refund {
+  id               String       @id @default(cuid())
+  bookingId        String       @map("booking_id")
+  vendorId         String       @map("vendor_id")
+  // Whole AED returned. Stored positive — sign is implicit (refunds reduce
+  // net revenue). VAT component is the share of [amountAed] that
+  // proportionally maps to the booking's vatAed.
+  amountAed        Int          @map("amount_aed")
+  vatAed           Int          @default(0) @map("vat_aed")
+  reason           String
+  status           RefundStatus @default(processed)
+  // FTA credit note: sequential, scoped to the vendor, never reused.
+  creditNoteNumber String?      @unique @map("credit_note_number")
+  // The vendor staff member who logged this refund. Optional so legacy
+  // refunds (or system-issued ones) can be inserted without a user FK.
+  createdById      String?      @map("created_by_id")
+  createdAt        DateTime     @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, createdAt])
+  @@index([bookingId])
+  @@map("refunds")
+}
+
+enum RefundStatus {
+  // V1 only emits 'processed' — the act has happened off-platform and we
+  // just recorded it. 'voided' lets the owner mark a wrongly-recorded
+  // refund as cancelled without deleting the row (audit trail stays).
+  processed
+  voided
+}
+
+// -------------------------------------------------------------
+// Inventory — vendor-side consumables catalog + movement log.
+// -------------------------------------------------------------
+//
+// Models the stuff a wash bay consumes (soap, wax, microfiber towels,
+// foam concentrate, …). V1 is intentionally minimal — manual stock
+// adjustments + low-stock alerts. Service-linking + auto-deduct on
+// booking complete lands in V1.1 (the join shape is reserved for it).
+
+model Product {
+  id              String          @id @default(cuid())
+  vendorId        String          @map("vendor_id")
+  name            String
+  // Optional SKU/code — vendor's internal reference. Unique within vendor.
+  sku             String?
+  category        ProductCategory @default(other)
+  // Unit of measure shown next to stock counts. Free-text so vendors can
+  // pick whatever fits ("L", "ml", "pcs", "kg", "box").
+  unit            String          @default("pcs")
+  // Whole AED per unit. Stored on the product so the average cost of goods
+  // sold can be approximated on the finance dashboard later. Nullable
+  // because some consumables (towels) are tracked by count, not cost.
+  costAed         Int?            @map("cost_aed")
+  // Current on-hand quantity. Bumped by StockMovement rows; staff never
+  // edit this column directly (the route layer wraps adjustments in a
+  // transaction that writes both the movement + the new total).
+  stockQty        Int             @default(0) @map("stock_qty")
+  // When stockQty falls at or below this, the product is flagged "low" on
+  // the inventory dashboard. 0 disables the alert (default for new rows
+  // until the owner sets a sensible floor).
+  lowStockThreshold Int           @default(0) @map("low_stock_threshold")
+  // Where the bottles live — a hint for the staff member doing the
+  // restock. Free-text ("Storeroom shelf 2", "Bay 3 cabinet").
+  location        String?
+  // Soft-delete so historical movements still resolve their product name.
+  // Hidden from the catalog list once non-null.
+  deletedAt       DateTime?       @map("deleted_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt      @map("updated_at")
+
+  vendor    Vendor          @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  movements StockMovement[]
+
+  @@unique([vendorId, sku])
+  @@index([vendorId, deletedAt])
+  @@map("products")
+}
+
+// Loose taxonomy for the catalog. Lets the SPA group products on the
+// inventory page without forcing strict categorisation — anything weird
+// falls under 'other'.
+enum ProductCategory {
+  soap
+  wax
+  towel
+  consumable
+  equipment
+  other
+}
+
+// Append-only audit log for stock changes. Every adjustment, restock,
+// shrinkage, and (in V1.1) auto-deduct from a completed booking writes
+// one row. The product's stockQty after this movement is stored on the
+// row so the running balance is queryable without re-summing the log.
+model StockMovement {
+  id          String              @id @default(cuid())
+  productId   String              @map("product_id")
+  vendorId    String              @map("vendor_id")
+  // Signed change to stockQty. +ve = inflow (restock, adjustment-up),
+  // -ve = outflow (used in a wash, shrinkage, adjustment-down).
+  delta       Int
+  // stockQty after this movement (saved once so historical balance
+  // tracing doesn't need a window function over the entire log).
+  resultingQty Int                 @map("resulting_qty")
+  reason      StockMovementReason
+  note        String?
+  // If the movement was driven by a specific booking (auto-deduct in
+  // V1.1), point at it. Null for manual adjustments + restocks.
+  bookingId   String?             @map("booking_id")
+  createdById String?             @map("created_by_id")
+  createdAt   DateTime            @default(now()) @map("created_at")
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  vendor  Vendor  @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@index([vendorId, createdAt])
+  @@index([productId, createdAt])
+  @@map("stock_movements")
+}
+
+// Reason taxonomy keeps the movement log filterable. Free-text `note`
+// captures the specifics.
+enum StockMovementReason {
+  restock        // Bought more / received delivery
+  adjustment     // Owner manually corrected the count
+  used_in_wash   // Auto-deduct from a completed booking (V1.1)
+  shrinkage      // Lost, broken, expired
+  initial_stock  // Opening balance when product first added
 }
 
 // -------------------------------------------------------------
@@ -406,4 +639,101 @@ enum BookingStatus {
   completed
   cancelled
   no_show
+}
+
+// -------------------------------------------------------------
+// Promotions
+// -------------------------------------------------------------
+//
+// Vendor-scoped (or platform-wide when vendorId is null) discount codes.
+// Created in the vendor admin, validated server-side when a customer
+// enters the code at booking-create time. Each successful application is
+// recorded as a PromotionRedemption row so we can:
+//   - enforce per-customer usage limits
+//   - power the "revenue impact" tile in the vendor's Promotions list
+//   - reconcile what was actually discounted vs. the promo's headline
+//
+// The promo definition (type, value, validity) lives on Promotion. The
+// realised discount per booking lives on PromotionRedemption + on the
+// Booking row's discountAed column (denormalised for fast reporting).
+
+model Promotion {
+  id          String        @id @default(cuid())
+  // Null = platform-wide promotion (super-admin only). Otherwise scoped
+  // to this vendor — only their staff can edit it and only their
+  // services can be discounted.
+  vendorId    String?       @map("vendor_id")
+  // Human-readable name shown in the vendor admin + as the eyebrow on
+  // the customer-facing banner. e.g. "Summer Splash 20% Off".
+  name        String
+  // Short uppercase code customers type at checkout. Unique within the
+  // owning vendor scope (or across platform when vendorId is null).
+  code        String
+  type        PromotionType
+  // For percent: 20 means 20% off. For fixed: 20 means AED 20 off.
+  // For bundle: not used (bundle defined by applicableServiceIds).
+  value       Int
+  // Optional restrictions. Empty arrays / nulls = no restriction.
+  applicableServiceIds String[]   @default([]) @map("applicable_service_ids")
+  applicableCarTypes   CarType[]  @default([])  @map("applicable_car_types")
+  minSpendAed          Int?       @map("min_spend_aed")
+  // Validity window (UAE wall-clock, GMT+4).
+  startsAt    DateTime @map("starts_at")
+  endsAt      DateTime @map("ends_at")
+  // Caps. usageLimit is global; perCustomerLimit is per registered customer.
+  usageLimit       Int @default(0) @map("usage_limit")
+  perCustomerLimit Int @default(1) @map("per_customer_limit")
+  // Behaviour at checkout.
+  autoApplied Boolean @default(false) @map("auto_applied")
+  featured    Boolean @default(false)
+  // Free-text terms shown on the customer banner + receipt.
+  terms       String?
+  status      PromotionStatus @default(active)
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt      @map("updated_at")
+  archivedAt  DateTime? @map("archived_at")
+
+  vendor      Vendor?     @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  redemptions PromotionRedemption[]
+  bookings    Booking[]
+
+  @@unique([vendorId, code])
+  @@index([vendorId, status])
+  @@index([endsAt])
+  @@map("promotions")
+}
+
+enum PromotionType {
+  percent
+  fixed
+  bundle
+}
+
+enum PromotionStatus {
+  active
+  scheduled
+  paused
+  expired
+  archived
+}
+
+// One row per successful application. Booking is the FK target so we can
+// trace the discount line on the receipt back to the promo + the customer.
+// customerId is denormalised (also reachable via booking.customerId) so
+// the per-customer usage cap is a single index scan.
+model PromotionRedemption {
+  id          String   @id @default(cuid())
+  promotionId String   @map("promotion_id")
+  bookingId   String   @unique @map("booking_id")
+  customerId  String?  @map("customer_id")
+  amountOffAed Int     @map("amount_off_aed")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  booking   Booking   @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([promotionId])
+  @@index([customerId])
+  @@map("promotion_redemptions")
 }

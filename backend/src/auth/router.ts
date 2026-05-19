@@ -378,6 +378,8 @@ authRouter.get(
         slotStart: b.slotStart.toISOString(),
         slotEnd: b.slotEnd.toISOString(),
         totalAed: b.totalAed,
+        vatAed: b.vatAed,
+        invoiceNumber: b.invoiceNumber,
         vendor: b.vendor,
         service: b.service,
         bay: b.bay,

@@ -28,6 +28,15 @@ export const requireVendor =
         new HttpError(403, 'You are not registered as vendor staff', { code: 'not_vendor_staff' }),
       );
     }
+    // Soft-suspended staff can sign in but can't use any vendor-admin
+    // endpoints. The owner reactivates them from Staff settings.
+    if (member.status === 'suspended') {
+      return next(
+        new HttpError(403, 'Your access has been suspended. Contact the vendor owner.', {
+          code: 'vendor_member_suspended',
+        }),
+      );
+    }
     if (allowedRoles.length > 0 && !allowedRoles.includes(member.role as 'owner' | 'manager' | 'attendant')) {
       return next(
         new HttpError(403, `Requires one of: ${allowedRoles.join(', ')}`, { code: 'role_forbidden' }),

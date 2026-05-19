@@ -25,6 +25,8 @@ export interface AdminVendor {
   emirate: Emirate;
   addressLine: string | null;
   tradeLicenseNo: string | null;
+  /** UAE Tax Registration Number — 15 digits per FTA. */
+  trnNumber: string | null;
   lat: number;
   lng: number;
   logoUrl: string | null;
@@ -56,6 +58,8 @@ export interface AdminBooking {
   slotStart: string;
   slotEnd: string;
   totalAed: number;
+  vatAed: number;
+  invoiceNumber: string | null;
   // For walk-ins, customer.id is null and customer.fullName / phone come from
   // the walkInName / walkInPhone fields captured at the desk.
   isWalkIn?: boolean;
@@ -100,8 +104,19 @@ export interface AvailabilityBooking {
   slotStart: string;
   slotEnd: string;
   status: string;
+  totalAed: number;
+  vatAed: number;
+  invoiceNumber: string | null;
   isWalkIn: boolean;
   customerName: string | null;
+  customerPhone: string | null;
+  carMake: string | null;
+  carType: string | null;
+  carColor: string | null;
+  carPlate: string | null;
+  serviceName: string;
+  /** 'cash' = walk-in (off-platform), 'paid'/'unpaid' = app booking */
+  paymentMethod: 'paid' | 'unpaid' | 'cash';
 }
 
 export interface AvailabilityResponse {
@@ -225,6 +240,7 @@ export interface UpdateBrandBody {
   emirate?: Emirate;
   addressLine?: string | null;
   tradeLicenseNo?: string | null;
+  trnNumber?: string | null;
   lat?: number;
   lng?: number;
   logoUrl?: string | null;

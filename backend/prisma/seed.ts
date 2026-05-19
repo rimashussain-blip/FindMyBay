@@ -103,6 +103,23 @@ const VENDORS: SeedVendor[] = [
     ],
   },
   {
+    brandName: 'Majaz Lagoon Wash',
+    city: 'Sharjah',
+    emirate: 'Sharjah',
+    addressLine: 'Jamal Abdul Nasser St, Al Majaz 2, Sharjah',
+    lat: 25.336,
+    lng: 55.388,
+    rating: 4.6,
+    priceFromAed: 32,
+    bays: 4,
+    freeBays: 3,
+    services: [
+      { name: 'Quick Exterior', durationMin: 20, priceAed: 32 },
+      { name: 'Standard Wash', durationMin: 35, priceAed: 55 },
+      { name: 'Premium Shine', durationMin: 60, priceAed: 110 },
+    ],
+  },
+  {
     brandName: 'Yas Premium Wash',
     city: 'Abu Dhabi',
     emirate: 'AbuDhabi',

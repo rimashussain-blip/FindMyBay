@@ -1,5 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import { getMe } from '../api/admin';
 import { useAuth } from '../store/auth';
 
@@ -40,46 +41,55 @@ function Sidebar({
   onLogout: () => void;
 }) {
   return (
-    <aside className="sticky top-0 flex h-screen w-64 flex-col gap-2 border-r border-mint-edge bg-white p-6">
+    <aside className="sticky top-0 flex h-screen w-[280px] flex-col gap-3.5 border-r border-mint-edge bg-white p-6">
       {/* Brand block */}
-      <div className="mb-8 flex items-center gap-3">
-        <LogoMark size={40} />
-        <div>
-          <div className="text-sm font-bold text-ink leading-tight">Find My Bay</div>
-          <div className="text-[11px] uppercase tracking-wider text-primary-deep">Vendor</div>
+      <div className="flex items-center gap-3 px-2.5 py-1.5">
+        <LogoMark size={44} />
+        <div className="leading-tight">
+          <div className="text-[17px] font-extrabold tracking-tight text-ink">findMy Bay</div>
+          <div className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-primary-deep">
+            Vendor
+          </div>
         </div>
       </div>
 
-      {/* Brand name + role chip — sand-tinted to echo the loyalty card on Android */}
+      {/* Owner chip — warm sand gradient, matches the loyalty card on the app */}
       <div
-        className="mb-6 rounded-xl border border-mint-edge p-3"
-        style={{ backgroundImage: 'linear-gradient(135deg, #FCE7C8 0%, #FFE3D9 100%)' }}
+        className="mt-1.5 rounded-2xl border px-4 py-3.5"
+        style={{
+          backgroundImage: 'linear-gradient(135deg, #FBF1DF, #FCE7C8)',
+          borderColor: 'rgba(245, 199, 126, 0.45)',
+        }}
       >
         <div className="flex items-center gap-2">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-primary-deep">
+          <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#7a4d12]">
             {role ?? '…'}
           </div>
           {status && status !== 'active' && <StatusPill status={status} />}
         </div>
-        <div className="mt-0.5 text-sm font-bold text-ink">{brandName ?? 'Loading…'}</div>
+        <div className="mt-0.5 text-base font-bold text-ink">{brandName ?? 'Loading…'}</div>
       </div>
 
       {/* Nav */}
-      <nav className="flex flex-col gap-1">
-        <NavItem to="/dashboard" label="Dashboard" icon="📊" />
-        <NavItem to="/bays" label="Bay board" icon="🅱" />
-        <NavItem to="/bookings" label="Bookings" icon="📅" />
-        <NavItem to="/walk-in" label="Walk-in" icon="🚶" />
-        <NavItem to="/scan" label="Scan check-in" icon="📷" />
-        <NavItem to="/services" label="Services" icon="✨" />
-        <NavItem to="/reviews" label="Reviews" icon="⭐" />
-        <NavItem to="/brand" label="Brand & branch" icon="🏷" />
+      <nav className="mt-1.5 flex flex-col gap-1">
+        <NavItem to="/dashboard" label="Dashboard" icon={<DashboardIcon />} />
+        <NavItem to="/bays" label="Bay board" icon={<BayBoardIcon />} />
+        <NavItem to="/bookings" label="Bookings" icon={<BookingsIcon />} />
+        <NavItem to="/walk-in" label="Walk-in" icon={<WalkInIcon />} />
+        <NavItem to="/scan" label="Scan check-in" icon={<ScanIcon />} />
+        <NavItem to="/services" label="Services" icon={<ServicesIcon />} />
+        <NavItem to="/promotions" label="Promotions" icon={<PromotionsIcon />} />
+        <NavItem to="/finance" label="Finance" icon={<FinanceIcon />} />
+        <NavItem to="/inventory" label="Inventory" icon={<InventoryIcon />} />
+        <NavItem to="/staff" label="Staff" icon={<StaffIcon />} />
+        <NavItem to="/reviews" label="Reviews" icon={<ReviewsIcon />} />
+        <NavItem to="/brand" label="Brand & branch" icon={<BrandIcon />} />
       </nav>
 
       <div className="mt-auto">
         <button
           onClick={onLogout}
-          className="w-full rounded-full border border-mint-edge bg-white px-4 py-2.5 text-sm text-ink-soft hover:bg-mint"
+          className="w-full rounded-xl border border-mint-edge bg-white px-4 py-3 text-[13px] font-semibold text-ink-soft transition hover:bg-mint hover:text-ink"
         >
           Sign out
         </button>
@@ -104,53 +114,193 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
-function NavItem({ to, label, icon }: { to: string; label: string; icon: string }) {
+function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNode }) {
   return (
     <NavLink
       to={to}
       className={({ isActive }) =>
         [
-          'flex items-center gap-3 rounded-full px-4 py-2.5 text-sm font-medium transition',
+          // 12px rounded pill per design; active gets the aqua→deep gradient
+          // with a soft drop-shadow so it lifts off the white sidebar.
+          'flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition',
           isActive
-            ? 'bg-primary-deep text-white'
-            : 'text-ink hover:bg-mint hover:text-primary-deep',
+            ? 'text-white shadow-md shadow-primary-deep/30'
+            : 'text-ink-soft hover:bg-mint hover:text-ink',
         ].join(' ')
       }
+      style={({ isActive }) =>
+        isActive
+          ? { backgroundImage: 'linear-gradient(135deg, #14B8A6, #0F766E)' }
+          : undefined
+      }
     >
-      <span>{icon}</span> {label}
+      <span className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center">
+        {icon}
+      </span>
+      {label}
     </NavLink>
   );
 }
 
-function LogoMark({ size = 40 }: { size?: number }) {
+function LogoMark({ size = 44 }: { size?: number }) {
   return (
     <div
       className="flex items-center justify-center rounded-xl"
       style={{
         width: size,
         height: size,
-        background: 'linear-gradient(160deg, #2DD4BF 0%, #0F766E 100%)',
-        boxShadow: '0 6px 16px rgba(15,118,110,0.3)',
+        backgroundImage: 'linear-gradient(150deg, #14B8A6 0%, #0F766E 100%)',
+        boxShadow: '0 6px 16px rgba(15,118,110,0.30)',
       }}
     >
-      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 100 100">
+      <svg width={size * 0.5} height={size * 0.5} viewBox="0 0 28 28" fill="none">
         <path
-          d="M50 18 C50 18 28 42 28 60 C28 72 38 82 50 82 C62 82 72 72 72 60 C72 42 50 18 50 18 Z"
-          fill="#FFFFFF"
+          d="M14 3 C 8 11, 6 16, 6 19 a 8 8 0 0 0 16 0 c 0 -3 -2 -8 -8 -16 Z"
+          fill="white"
         />
-        <text
-          x="50"
-          y="69"
-          textAnchor="middle"
-          fontFamily="Roboto, system-ui"
-          fontWeight="700"
-          fontSize="28"
-          fill="#0F766E"
-          letterSpacing="-1"
-        >
-          P
-        </text>
+        <circle cx="14" cy="20" r="2.5" fill="#0F766E" />
       </svg>
     </div>
+  );
+}
+
+// ─── Nav icons (vector, matches the design handoff) ──────────────────────
+
+function DashboardIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="2" width="6" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="2" y="13" width="6" height="3" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="10" y="2" width="6" height="3" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+      <rect x="10" y="7" width="6" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function BayBoardIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2.5" y="2.5" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M2.5 6.5h13" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="9" cy="11" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function BookingsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2.5" y="4" width="13" height="11" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M2.5 7.5h13M6 2v4M12 2v4"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function WalkInIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <circle cx="9" cy="4" r="2" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="M9 6v4m-3 6l3-6 3 6M5 9l4-1 4 1"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ScanIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <rect x="2" y="4" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="9" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function ServicesIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path
+        d="M9 2l1.8 3.8 4.2.6-3 3 .8 4.2L9 11.5l-3.8 2.1.8-4.2-3-3 4.2-.6z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ReviewsIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <path
+        d="M9 2l2 4 4.5.5L12 10l1 4.5L9 12 5 14.5l1-4.5-3.5-3.5L7 6z"
+        fill="currentColor"
+        fillOpacity="0.25"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function BrandIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+      <circle cx="6" cy="6" r="3" stroke="currentColor" strokeWidth="1.6" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+function PromotionsIcon() {
+  // Gift / tag glyph
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 12v10H4V12M22 7H2v5h20V7zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z" />
+    </svg>
+  );
+}
+
+function InventoryIcon() {
+  // Boxes / stacked crates glyph
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <path d="M3.27 6.96 12 12.01l8.73-5.05" />
+      <path d="M12 22.08V12" />
+    </svg>
+  );
+}
+
+function FinanceIcon() {
+  // Coin / receipt glyph
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 4h12l4 4v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4z" />
+      <path d="M16 4v4h4" />
+      <path d="M8 13h8M8 17h5" />
+      <path d="M10 9h2" />
+    </svg>
+  );
+}
+
+function StaffIcon() {
+  // Two-people / team glyph
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
   );
 }
