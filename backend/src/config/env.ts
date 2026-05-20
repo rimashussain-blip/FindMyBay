@@ -55,6 +55,12 @@ const schema = z.object({
   // var. Either FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON
   // can be set; if both, JSON wins.
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional().default(''),
+  // Base64-encoded alternative for FIREBASE_SERVICE_ACCOUNT_JSON. Workaround
+  // for Azure CLI's argument-passing on Windows where multi-quote JSON
+  // values get mangled when set via `az containerapp secret set --secrets`.
+  // The encoded form has no special chars, so it survives any shell.
+  // If set, takes precedence over the plain-JSON env var.
+  FIREBASE_SERVICE_ACCOUNT_BASE64: z.string().optional().default(''),
   // Google Sign-In: the **Web** OAuth client ID from your Firebase / Google
   // Cloud project. Required when /auth/google is enabled. This is the
   // "primary" / canonical audience — typically the auto-created Firebase web

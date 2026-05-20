@@ -158,12 +158,30 @@ let cached: PushClient | null = null;
 export function getPushClient(): PushClient {
   if (cached) return cached;
 
-  // Prefer JSON content (container-deploy path); fall back to file path
-  // (local dev path).
+  // Resolution order:
+  //   1. FIREBASE_SERVICE_ACCOUNT_BASE64 — base64-encoded JSON. Workaround
+  //      for shell quote-mangling when uploading the secret on Windows
+  //      (Azure CLI on cmd.exe truncates raw JSON at embedded "). The
+  //      base64 form has no special chars and survives any shell.
+  //   2. FIREBASE_SERVICE_ACCOUNT_JSON — raw JSON content. Works on
+  //      Linux / when uploaded via Portal / via Bicep / via PowerShell-with-
+  //      arg-arrays.
+  //   3. FIREBASE_SERVICE_ACCOUNT_PATH — file on disk. Local dev path.
+  //   4. Fall back to console-only push client.
+  const base64 = env.FIREBASE_SERVICE_ACCOUNT_BASE64;
   const json = env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const path = env.FIREBASE_SERVICE_ACCOUNT_PATH;
 
-  if (json) {
+  if (base64) {
+    try {
+      const decoded = Buffer.from(base64, 'base64').toString('utf8');
+      logger.info({ provider: 'fcm', source: 'env-base64' }, 'Push client initialised (FCM)');
+      cached = new FcmPushClient({ kind: 'json', value: decoded });
+    } catch (err) {
+      logger.error({ err }, 'FIREBASE_SERVICE_ACCOUNT_BASE64 set but failed to decode; falling back');
+      cached = new ConsolePushClient();
+    }
+  } else if (json) {
     logger.info({ provider: 'fcm', source: 'env-json' }, 'Push client initialised (FCM)');
     cached = new FcmPushClient({ kind: 'json', value: json });
   } else if (path && fs.existsSync(path)) {
@@ -172,9 +190,9 @@ export function getPushClient(): PushClient {
   } else {
     logger.info(
       { provider: 'console' },
-      'Push client initialised (console — set FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_PATH for real FCM)',
+      'Push client initialised (console — set FIREBASE_SERVICE_ACCOUNT_BASE64 / _JSON / _PATH for real FCM)',
     );
     cached = new ConsolePushClient();
   }
-  return cached;
+  return cached!;
 }
