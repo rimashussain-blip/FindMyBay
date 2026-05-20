@@ -43,7 +43,11 @@ object Routes {
     const val ONBOARDING = "onboarding"
     const val NEARBY = "nearby"
     const val VENDOR_DETAIL = "vendor/{vendorId}"
-    const val SLOT_PICKER = "vendor/{vendorId}/slot-picker"
+    // serviceId is optional — when the customer picks "Deep Clean" on the
+    // vendor detail screen, we forward it so the Pick-a-time screen opens
+    // pre-selected on the same service. Falls back to the vendor's first
+    // service when absent (e.g. coming from a deep link).
+    const val SLOT_PICKER = "vendor/{vendorId}/slot-picker?serviceId={serviceId}"
     const val REVIEW_PAY = "booking/{bookingId}/pay"
     const val BOOKING_CONFIRMED = "booking/{bookingId}/confirmed"
     const val LEAVE_NOW = "alert/leave-now/{vendorName}/{etaMin}/{slotTime}"
@@ -55,7 +59,10 @@ object Routes {
 
     fun otpVerify(phone: String) = "otp/$phone"
     fun vendorDetail(vendorId: String) = "vendor/$vendorId"
-    fun slotPicker(vendorId: String) = "vendor/$vendorId/slot-picker"
+    fun slotPicker(vendorId: String, serviceId: String? = null): String {
+        val base = "vendor/$vendorId/slot-picker"
+        return if (serviceId.isNullOrBlank()) base else "$base?serviceId=$serviceId"
+    }
     fun reviewPay(bookingId: String) = "booking/$bookingId/pay"
     fun bookingConfirmed(bookingId: String) = "booking/$bookingId/confirmed"
     fun showQr(bookingId: String) = "bookings/$bookingId/qr"
@@ -232,13 +239,22 @@ fun AppNav(initialDeepLink: AlertDeepLink? = null) {
                 ) {
                     VendorDetailScreen(
                         onBack = { nav.popBackStack() },
-                        onBook = { vendorId -> nav.navigate(Routes.slotPicker(vendorId)) },
+                        onBook = { vendorId, serviceId ->
+                            nav.navigate(Routes.slotPicker(vendorId, serviceId))
+                        },
                     )
                 }
 
                 composable(
                     route = Routes.SLOT_PICKER,
-                    arguments = listOf(navArgument("vendorId") { type = NavType.StringType }),
+                    arguments = listOf(
+                        navArgument("vendorId") { type = NavType.StringType },
+                        navArgument("serviceId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
                 ) {
                     SlotPickerScreen(
                         onBack = { nav.popBackStack() },

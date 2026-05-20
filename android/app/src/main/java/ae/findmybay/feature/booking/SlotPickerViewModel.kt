@@ -47,6 +47,10 @@ class SlotPickerViewModel @Inject constructor(
 ) : ViewModel() {
 
     val vendorId: String = checkNotNull(savedStateHandle["vendorId"])
+    // Optional initial service id, forwarded from the vendor detail screen
+    // when the customer picked a non-default service before tapping Book.
+    // Null when arriving via a deep link or back-stack restore.
+    private val initialServiceId: String? = savedStateHandle["serviceId"]
 
     private val _state = MutableStateFlow(SlotPickerUiState())
     val state: StateFlow<SlotPickerUiState> = _state.asStateFlow()
@@ -58,9 +62,14 @@ class SlotPickerViewModel @Inject constructor(
         viewModelScope.launch {
             runCatching { vendors.detail(vendorId) }
                 .onSuccess { v ->
-                    val first = v.services.firstOrNull()
-                    _state.update { it.copy(loading = false, vendor = v, selectedService = first) }
-                    if (first != null) loadSlots()
+                    // Honour the forwarded serviceId if it matches one of the
+                    // vendor's services; otherwise default to the first
+                    // (legacy behaviour for deep links / restored state).
+                    val preselected = initialServiceId?.let { id ->
+                        v.services.firstOrNull { it.id == id }
+                    } ?: v.services.firstOrNull()
+                    _state.update { it.copy(loading = false, vendor = v, selectedService = preselected) }
+                    if (preselected != null) loadSlots()
                 }
                 .onFailure { e -> _state.update { it.copy(loading = false, error = e.message ?: "Couldn't load vendor") } }
         }

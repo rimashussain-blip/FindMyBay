@@ -64,7 +64,7 @@ import ae.findmybay.domain.model.VendorDetail
 @Composable
 fun VendorDetailScreen(
     onBack: () -> Unit,
-    onBook: (vendorId: String) -> Unit,
+    onBook: (vendorId: String, serviceId: String?) -> Unit,
     vm: VendorDetailViewModel = hiltViewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -78,7 +78,10 @@ fun VendorDetailScreen(
                 Box(modifier = Modifier.fillMaxWidth().background(FmbCream).padding(16.dp)) {
                     FmbPrimaryButton(
                         text = label,
-                        onClick = { onBook(v.id) },
+                        // Forward the picked service so the Pick-a-time screen
+                        // pre-selects the same chip. Null falls back to the
+                        // vendor's first service in SlotPickerViewModel.
+                        onClick = { onBook(v.id, picked?.id) },
                         trailingIcon = {
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
