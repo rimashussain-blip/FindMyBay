@@ -3,6 +3,7 @@ package ae.findmybay.feature.booking
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ae.findmybay.core.net.apiErrorMessage
 import ae.findmybay.data.repo.BookingRepository
 import ae.findmybay.data.repo.VendorRepository
 import ae.findmybay.domain.model.Booking
@@ -124,7 +125,16 @@ class SlotPickerViewModel @Inject constructor(
                 )
             }
                 .onSuccess { booking -> _state.update { it.copy(confirming = false, booking = booking) } }
-                .onFailure { e -> _state.update { it.copy(confirming = false, error = e.message ?: "Couldn't confirm booking") } }
+                .onFailure { e ->
+                    _state.update {
+                        it.copy(
+                            confirming = false,
+                            // Surface the backend's actual message (e.g. "Promo can't
+                            // be applied: expired") instead of "HTTP 409".
+                            error = apiErrorMessage(e, "Couldn't confirm booking"),
+                        )
+                    }
+                }
         }
     }
 }
