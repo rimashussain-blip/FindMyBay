@@ -21,6 +21,13 @@ struct NearbyMapView: View {
     @Environment(\.colorScheme) private var colorScheme
     @State private var vm: NearbyViewModel?
     @State private var resultsExpanded: Bool = false
+    /// Drives the search-field's keyboard. We expose two ways to dismiss:
+    /// (1) Return key → `.onSubmit`, (2) "Done" toolbar button above the
+    /// keyboard, (3) selecting a vendor row. Without any of these the
+    /// virtual keyboard would stay up indefinitely with no obvious
+    /// affordance to put it away (no scroll-to-dismiss because the map
+    /// isn't in a ScrollView).
+    @FocusState private var searchFocused: Bool
     var onVendorTap: (Vendor) -> Void = { _ in }
 
     var body: some View {
@@ -56,6 +63,19 @@ struct NearbyMapView: View {
             .padding(.top, 8)
             .padding(.bottom, 12)
         }
+        // System keyboard toolbar — gives the user an unmistakable way to
+        // dismiss the keyboard. Without this they can get stuck after
+        // tapping the search bar (no scroll-to-dismiss; the map isn't in
+        // a ScrollView). Placement `.keyboard` slots the toolbar into the
+        // accessory bar that floats above the on-screen keyboard.
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") { searchFocused = false }
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Fmb.deep)
+            }
+        }
     }
 
     // MARK: - Results area
@@ -67,7 +87,14 @@ struct NearbyMapView: View {
             NearbyResultsSheet(
                 vendors: visible,
                 expanded: $resultsExpanded,
-                onVendorTap: onVendorTap
+                onVendorTap: { vendor in
+                    // Tapping a result dismisses the keyboard and forwards
+                    // to the host's navigation handler. Without the focus
+                    // clear, the keyboard stays mounted on top of the
+                    // pushed Vendor Detail view.
+                    searchFocused = false
+                    onVendorTap(vendor)
+                }
             )
             .padding(.horizontal, 16)
         } else if !vm.vendors.isEmpty {
@@ -190,6 +217,14 @@ struct NearbyMapView: View {
             .font(.system(size: 13))
             .foregroundStyle(scheme.onSurface)
             .tint(scheme.primary)
+            .focused($searchFocused)
+            // Show a "Search" return key (visual hint that pressing it
+            // commits the query) — pressing it just hides the keyboard
+            // since we filter live as the user types.
+            .submitLabel(.search)
+            .onSubmit { searchFocused = false }
+            .autocorrectionDisabled()
+            .textInputAutocapitalization(.never)
             if !vm.searchQuery.isEmpty {
                 Button { vm.setSearchQuery("") } label: {
                     Image(systemName: "xmark.circle.fill")
