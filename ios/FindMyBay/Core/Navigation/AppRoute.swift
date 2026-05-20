@@ -46,7 +46,13 @@ enum HomeTab: String, Hashable, CaseIterable, Identifiable {
 /// tapping a vendor from the map opens VendorDetail in the same stack).
 enum AppRoute: Hashable {
     case vendorDetail(vendorId: String)
-    case slotPicker(vendorId: String)
+    /// `initialServiceId` is the service the user picked on Vendor Detail.
+    /// Optional because deep-links can arrive without it. SlotPickerViewModel
+    /// honours it as `vendor.services.first { $0.id == initialServiceId }`
+    /// before falling back to `.first`. Earlier nav dropped this value so
+    /// "Deep Clean" tapped on the detail page always landed on "Quick Wash"
+    /// at the slot picker.
+    case slotPicker(vendorId: String, initialServiceId: String?)
     case reviewPay(bookingId: String)
     case bookingConfirmed(bookingId: String)
     case showQr(bookingId: String)

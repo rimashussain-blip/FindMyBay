@@ -13,9 +13,24 @@ actor BookingRepository {
 
     /// Create a new booking. `slotStartIso` is the ISO 8601 string returned
     /// from `/vendors/:id/availability`.
-    func create(vendorId: String, serviceId: String, slotStartIso: String) async throws -> Booking {
+    /// `promoCode` is optional. Backend uppercases + trims on receipt; we
+    /// still normalise here so the wire payload is canonical (and an empty
+    /// string is collapsed to nil to avoid the backend rejecting it).
+    func create(
+        vendorId: String,
+        serviceId: String,
+        slotStartIso: String,
+        promoCode: String? = nil
+    ) async throws -> Booking {
+        let cleaned = promoCode?
+            .trimmingCharacters(in: .whitespaces)
+            .uppercased()
+        let normalised = (cleaned?.isEmpty ?? true) ? nil : cleaned
         let dto = try await api.create(CreateBookingBody(
-            vendorId: vendorId, serviceId: serviceId, slotStart: slotStartIso
+            vendorId: vendorId,
+            serviceId: serviceId,
+            slotStart: slotStartIso,
+            promoCode: normalised
         ))
         return Self.toDomain(dto)
     }
@@ -100,6 +115,8 @@ actor BookingRepository {
             slotEnd: d.slotEnd,
             totalAed: d.totalAed,
             vatAed: d.vatAed,
+            discountAed: d.discountAed,
+            promoCode: d.promoCode,
             invoiceNumber: d.invoiceNumber,
             createdAt: d.createdAt
         )

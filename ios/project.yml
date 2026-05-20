@@ -63,7 +63,7 @@ targets:
       properties:
         CFBundleDisplayName: Find My Bay
         CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "7"
+        CFBundleVersion: "9"
         UILaunchScreen: {}
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false

@@ -184,8 +184,12 @@ actor APIClient {
             throw APIError.unauthorized(message: message)
 
         default:
-            let message = (try? decoder.decode(APIErrorBody.self, from: data))?.message
-            throw APIError.http(status: http.statusCode, message: message)
+            let envelope = try? decoder.decode(APIErrorBody.self, from: data)
+            throw APIError.http(
+                status: http.statusCode,
+                code: envelope?.code,
+                message: envelope?.message
+            )
         }
     }
 

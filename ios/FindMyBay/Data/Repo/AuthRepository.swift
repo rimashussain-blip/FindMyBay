@@ -140,7 +140,8 @@ actor AuthRepository {
             carMake: d.carMake, carType: d.carType,
             carColor: d.carColor, carPlate: d.carPlate,
             profileComplete: d.profileComplete
-                ?? ((d.phone != nil) && (d.carType != nil) && (d.carPlate != nil))
+                ?? ((d.phone != nil) && (d.carType != nil) && (d.carPlate != nil)),
+            emailVerifiedAt: d.emailVerifiedAt
         )
     }
 

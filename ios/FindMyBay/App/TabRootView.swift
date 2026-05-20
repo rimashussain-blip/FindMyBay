@@ -86,11 +86,17 @@ private struct AppRouteView: View {
     var body: some View {
         switch route {
         case .vendorDetail(let id):
-            VendorDetailView(vendorId: id) { vendorId, _ in
-                path.append(AppRoute.slotPicker(vendorId: vendorId))
+            VendorDetailView(vendorId: id) { vendorId, serviceId in
+                path.append(AppRoute.slotPicker(
+                    vendorId: vendorId,
+                    initialServiceId: serviceId
+                ))
             }
-        case .slotPicker(let id):
-            SlotPickerView(vendorId: id) { bookingId in
+        case .slotPicker(let id, let initialServiceId):
+            SlotPickerView(
+                vendorId: id,
+                initialServiceId: initialServiceId
+            ) { bookingId in
                 path.append(AppRoute.reviewPay(bookingId: bookingId))
             }
         case .reviewPay(let id):

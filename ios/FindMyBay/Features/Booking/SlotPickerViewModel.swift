@@ -23,6 +23,12 @@ final class SlotPickerViewModel {
     var confirming: Bool = false
     var error: String? = nil
 
+    /// Promo accordion state — see PromoCodeBlock in SlotPickerView. Sent
+    /// to the backend on confirm. Validation happens server-side; we don't
+    /// pre-check the code here.
+    var promoCode: String = ""
+    var promoExpanded: Bool = false
+
     /// Today + next 3 days, normalised to start-of-day.
     var availableDates: [Date] {
         let cal = Calendar.current
@@ -32,11 +38,19 @@ final class SlotPickerViewModel {
 
     // MARK: - Deps
     let vendorId: String
+    /// Service id chosen on Vendor Detail. We match against the loaded
+    /// vendor's services list and fall back to `.first` if missing — covers
+    /// deep-links that opened the slot picker without an explicit service.
+    private let initialServiceId: String?
     private let vendors: VendorRepository
     private let bookings: BookingRepository
 
-    init(vendorId: String, vendors: VendorRepository, bookings: BookingRepository) {
+    init(vendorId: String,
+         initialServiceId: String? = nil,
+         vendors: VendorRepository,
+         bookings: BookingRepository) {
         self.vendorId = vendorId
+        self.initialServiceId = initialServiceId
         self.vendors = vendors
         self.bookings = bookings
     }
@@ -50,7 +64,14 @@ final class SlotPickerViewModel {
             do {
                 let v = try await vendors.detail(id: vendorId)
                 vendor = v
-                if selectedService == nil { selectedService = v.services.first }
+                // Honour the service the user picked on Vendor Detail. If
+                // the id doesn't match any returned service (stale link,
+                // deleted service), fall back to the first one so the
+                // picker still shows something usable.
+                if selectedService == nil {
+                    selectedService = v.services.first { $0.id == initialServiceId }
+                        ?? v.services.first
+                }
                 loading = false
                 if selectedService != nil { loadSlots() }
             } catch {
@@ -106,18 +127,31 @@ final class SlotPickerViewModel {
     // MARK: - Confirm
 
     /// Creates the booking and stores the result on `booking`. Caller observes
-    /// that property to navigate to ReviewPay.
+    /// that property to navigate to ReviewPay. Promo errors (`promo_*` codes
+    /// from the backend, all 409 except `promo_not_found` which is 404) are
+    /// surfaced verbatim via `APIError.userMessage` so the user sees the
+    /// real reason ("Promo can't be applied: not started", etc.) rather than
+    /// a generic "Couldn't confirm booking".
     func confirm() {
         guard let service = selectedService, let slot = selectedSlot else { return }
         confirming = true
         error = nil
+        let codeToSend = promoCode
+            .trimmingCharacters(in: .whitespaces)
+            .uppercased()
         Task {
             do {
                 let b = try await bookings.create(
-                    vendorId: vendorId, serviceId: service.id, slotStartIso: slot.startsAt
+                    vendorId: vendorId,
+                    serviceId: service.id,
+                    slotStartIso: slot.startsAt,
+                    promoCode: codeToSend.isEmpty ? nil : codeToSend
                 )
                 booking = b
                 confirming = false
+            } catch let api as APIError {
+                confirming = false
+                self.error = api.userMessage
             } catch {
                 confirming = false
                 self.error = (error as? LocalizedError)?.errorDescription

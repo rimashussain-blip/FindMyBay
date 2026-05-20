@@ -72,10 +72,16 @@ struct MeDTO: Codable {
     let carColor: String?
     let carPlate: String?
     let profileComplete: Bool?
+    /// ISO-8601 timestamp the user confirmed their email, or nil if still
+    /// unverified. Not currently surfaced in the customer UI — kept on the
+    /// model so an "Verify your email" banner can be added later without a
+    /// network shape change.
+    let emailVerifiedAt: String?
 
     enum CodingKeys: String, CodingKey {
         case id, phone, email, fullName, role, createdAt
         case carMake, carType, carColor, carPlate, profileComplete
+        case emailVerifiedAt
     }
 
     init(from decoder: Decoder) throws {
@@ -91,6 +97,7 @@ struct MeDTO: Codable {
         carColor        = try c.decodeIfPresent(String.self, forKey: .carColor)
         carPlate        = try c.decodeIfPresent(String.self, forKey: .carPlate)
         profileComplete = try c.decodeIfPresent(Bool.self, forKey: .profileComplete)
+        emailVerifiedAt = try c.decodeIfPresent(String.self, forKey: .emailVerifiedAt)
     }
 }
 

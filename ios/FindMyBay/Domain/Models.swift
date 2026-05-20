@@ -100,9 +100,14 @@ struct Booking: Identifiable, Equatable, Hashable {
     let bay: BookingBay
     let slotStart: String
     let slotEnd: String
+    /// Final amount after VAT and any promo discount.
     let totalAed: Int
     /// VAT component of `totalAed`. `nil` for pre-VAT-rollout bookings.
     let vatAed: Int?
+    /// Discount in whole AED applied via `promoCode`. 0 if no promo was used.
+    let discountAed: Int
+    /// Promo code the discount was sourced from. Nil if no promo was used.
+    let promoCode: String?
     /// FTA tax-invoice number assigned on payment-success / walk-in creation.
     let invoiceNumber: String?
     let createdAt: String
@@ -147,6 +152,10 @@ struct UserProfile: Identifiable, Equatable {
     let carColor: String?
     let carPlate: String?
     let profileComplete: Bool
+    /// ISO-8601 timestamp the user confirmed their email, or nil. Reserved
+    /// for an "unverified" banner the customer app doesn't currently render
+    /// — see IOS_MIGRATION §1.3.
+    let emailVerifiedAt: String?
 
     /// Two-letter initials for avatar — matches the Kotlin `initials` getter.
     var initials: String {

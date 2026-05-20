@@ -15,6 +15,10 @@ import SwiftUI
 struct SlotPickerView: View {
 
     let vendorId: String
+    /// Service id picked on Vendor Detail. nil = arrived via a deep-link
+    /// without an explicit service → fall back to vendor's first service
+    /// in the view model.
+    let initialServiceId: String?
     var onBookingCreated: (_ bookingId: String) -> Void
 
     @Environment(\.fmbScheme) private var scheme
@@ -38,6 +42,7 @@ struct SlotPickerView: View {
             if vm == nil {
                 let new = SlotPickerViewModel(
                     vendorId: vendorId,
+                    initialServiceId: initialServiceId,
                     vendors: env.vendorRepo,
                     bookings: env.bookingRepo
                 )
@@ -295,7 +300,20 @@ struct SlotPickerView: View {
     @ViewBuilder
     private func stickyCTA(vm: SlotPickerViewModel) -> some View {
         let enabled = vm.selectedSlot != nil && !vm.confirming
-        VStack {
+        // The promo block doesn't have its own backing state — we bind it
+        // straight to the view-model so the user's typed code survives
+        // accordion collapse / re-expand and gets sent on confirm.
+        let promoBinding = Binding<String>(
+            get: { vm.promoCode },
+            set: { vm.promoCode = $0 }
+        )
+        let expandedBinding = Binding<Bool>(
+            get: { vm.promoExpanded },
+            set: { vm.promoExpanded = $0 }
+        )
+
+        VStack(spacing: 10) {
+            FmbPromoCodeBlock(code: promoBinding, expanded: expandedBinding)
             FmbPrimaryButton(
                 title: confirmTitle(vm: vm),
                 loading: vm.confirming,

@@ -126,12 +126,43 @@ struct ReviewPayView: View {
                 Text("Total")
                     .font(Fmb.Typo.titleMedium)
                 Spacer()
+                // Pre-discount price gets the strikethrough next to the
+                // (already-discounted) total, so the user sees what they
+                // saved at a glance. Only render when the service's list
+                // price is actually higher than the final total — covers
+                // both "no promo" and "fixed-price promo" cases cleanly.
+                if b.discountAed > 0 && b.service.priceAed > b.totalAed {
+                    Text("AED \(b.service.priceAed)")
+                        .font(Fmb.Typo.bodySmall)
+                        .foregroundStyle(Fmb.neutral500)
+                        .strikethrough()
+                }
                 Text("AED \(b.totalAed)")
                     .font(Fmb.Typo.titleLarge)
                     .foregroundStyle(Fmb.deep)
             }
+
+            // Promo-applied pill (sand background, deep-amber text) lives
+            // under the total when a promo was used. Matches the Android
+            // TotalBlock pill exactly so screenshots line up cross-platform.
+            if b.discountAed > 0, let promo = b.promoCode {
+                HStack {
+                    Spacer()
+                    Text("\(promo) · −AED \(b.discountAed)")
+                        .font(.system(size: 10, weight: .bold))
+                        .tracking(0.4)
+                        .foregroundStyle(Color(hex: 0x7A4D12))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Fmb.sand)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                }
+            }
+
             HStack {
-                Text("Inclusive of VAT")
+                Text(b.discountAed > 0
+                     ? "Inclusive of VAT · Promo applied"
+                     : "Inclusive of VAT")
                     .font(Fmb.Typo.labelSmall)
                     .foregroundStyle(scheme.onSurfaceVariant)
                 Spacer()

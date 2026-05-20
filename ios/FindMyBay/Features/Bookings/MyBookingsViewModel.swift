@@ -98,6 +98,8 @@ final class MyBookingsViewModel {
                             slotStart: b.slotStart, slotEnd: b.slotEnd,
                             totalAed: b.totalAed,
                             vatAed: b.vatAed,
+                            discountAed: b.discountAed,
+                            promoCode: b.promoCode,
                             invoiceNumber: b.invoiceNumber,
                             createdAt: b.createdAt
                         )
