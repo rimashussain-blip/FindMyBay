@@ -82,7 +82,19 @@
     border-bottom: 1px solid var(--line);
   }
   .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; color: var(--ink); }
+  /* Wordmark logo — see brand kit. "find" in muted sage-teal at regular
+     weight; "My Bay" in deep ink at extrabold weight. No icon. */
+  .brand {
+    display: inline-flex; align-items: baseline; gap: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .brand-find  { font-weight: 500; color: var(--ink-soft); }
+  .brand-mybay { font-weight: 800; color: var(--ink); }
+  /* Legacy icon tile retained in case other surfaces still reference it. */
   .brand-mark {
     width: 34px; height: 34px; border-radius: 9px;
     background: linear-gradient(150deg, var(--primary), var(--primary-deep));
@@ -234,13 +246,7 @@
 <nav class="nav">
   <div class="container nav-inner">
     <a class="brand" href="/">
-      <div class="brand-mark">
-        <svg width="20" height="20" viewBox="0 0 28 28" fill="none">
-          <path d="M14 3 C 8 11, 6 16, 6 19 a 8 8 0 0 0 16 0 c 0 -3 -2 -8 -8 -16 Z" fill="white"/>
-          <circle cx="14" cy="20" r="2.5" fill="#0F766E"/>
-        </svg>
-      </div>
-      findMy Bay
+      <span class="brand-find">find</span><span class="brand-mybay">My Bay</span>
     </a>
     <div class="nav-links">
       <a href="/#services">In the app</a>
