@@ -1,12 +1,15 @@
 // One-shot seed: Aqua Car Wash + owner + services + bays + products +
 // recipes + supplier + promo + sample bookings.
 //
-// Run on the container:
-//   B64=$(base64 -w0 backend/scripts/seed-aqua.js)
-//   az containerapp exec --name fmb-backend --resource-group fmb-prod-rg \
-//     --command "node -e \"eval(Buffer.from('$B64','base64').toString())\""
+// The owner password is read from the SEED_OWNER_PASSWORD env var so
+// it's never committed to source. If it's missing the script aborts.
 //
-// Or copy into the container and `node seed-aqua.js`.
+// Run locally against prod:
+//   DATABASE_URL=... SEED_OWNER_PASSWORD=... node backend/scripts/seed-aqua.js
+//
+// Or inside the container:
+//   az containerapp exec --name fmb-backend --resource-group fmb-prod-rg \
+//     --command "sh -c 'export SEED_OWNER_PASSWORD=...; node /tmp/seed-aqua.js'"
 //
 // Idempotent — safe to re-run. Uses known IDs so updates land on the
 // same rows. The PostGIS geom column is set via raw SQL after the
@@ -17,7 +20,13 @@ const bcrypt = require('bcrypt');
 
 const VENDOR_ID = 'seed-aqua-car-wash';
 const OWNER_EMAIL = 'owner@aquacarwash.ae';
-const OWNER_PASSWORD = 'AquaWash2026!';
+const OWNER_PASSWORD = process.env.SEED_OWNER_PASSWORD;
+if (!OWNER_PASSWORD || OWNER_PASSWORD.length < 10) {
+  console.error(
+    'SEED_OWNER_PASSWORD env var is required (10+ chars). Set it before running.',
+  );
+  process.exit(1);
+}
 
 // Stable IDs so re-running the seed updates existing rows.
 const S = {
@@ -459,7 +468,7 @@ async function main() {
 
   console.log('');
   console.log('==> Done.');
-  console.log(`    Vendor admin login: ${OWNER_EMAIL} / ${OWNER_PASSWORD}`);
+  console.log(`    Vendor admin login: ${OWNER_EMAIL} (password = the SEED_OWNER_PASSWORD you set)`);
   console.log('    Vendor will appear in customer-app Nearby map at Dubai 25.1325, 55.2294');
   console.log('    Promo code: AQUA10 (10% off, AED 50 min spend, 14 days)');
   console.log('    Low-stock banner will trigger for "Glass Cleaner" (3 / threshold 5)');
