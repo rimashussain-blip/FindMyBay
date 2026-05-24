@@ -149,22 +149,26 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: ReactNo
 }
 
 function LogoMark({ size = 44 }: { size?: number }) {
+  // Brand kit "M1 Marker": solid deep-teal squircle with a cream teardrop
+  // and a circular cutout through its centre. Matches the Android adaptive
+  // launcher + in-app LogoMark composable.
   return (
     <div
       className="flex items-center justify-center rounded-xl"
       style={{
         width: size,
         height: size,
-        backgroundImage: 'linear-gradient(150deg, #14B8A6 0%, #0F766E 100%)',
+        background: '#0F766E',
         boxShadow: '0 6px 16px rgba(15,118,110,0.30)',
       }}
     >
-      <svg width={size * 0.5} height={size * 0.5} viewBox="0 0 28 28" fill="none">
+      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 100 100" fill="none">
         <path
-          d="M14 3 C 8 11, 6 16, 6 19 a 8 8 0 0 0 16 0 c 0 -3 -2 -8 -8 -16 Z"
-          fill="white"
+          fillRule="evenodd"
+          clipRule="evenodd"
+          fill="#FFF7EC"
+          d="M50 14 C50 14 22 42 22 64 C22 79 34 90 50 90 C66 90 78 79 78 64 C78 42 50 14 50 14 Z M50 49 a13 13 0 1 0 0 26 a13 13 0 1 0 0 -26 Z"
         />
-        <circle cx="14" cy="20" r="2.5" fill="#0F766E" />
       </svg>
     </div>
   );

@@ -60,27 +60,20 @@ export default function LoginPage() {
       <div className="halo-mint pointer-events-none absolute inset-0" aria-hidden />
       <div className="relative w-full max-w-md">
         <div className="mb-8 text-center">
+          {/* Brand mark per brand kit "M1 Marker": solid deep-teal squircle
+              with a cream teardrop and a circular cutout. Matches the Android
+              launcher icon + the in-app LogoMark composable. */}
           <div
             className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl"
-            style={{ background: 'linear-gradient(160deg, #2DD4BF 0%, #0F766E 100%)' }}
+            style={{ background: '#0F766E' }}
           >
-            <svg width="32" height="32" viewBox="0 0 100 100">
+            <svg width="34" height="34" viewBox="0 0 100 100" fill="none">
               <path
-                d="M50 18 C50 18 28 42 28 60 C28 72 38 82 50 82 C62 82 72 72 72 60 C72 42 50 18 50 18 Z"
-                fill="#fff"
+                fillRule="evenodd"
+                clipRule="evenodd"
+                fill="#FFF7EC"
+                d="M50 14 C50 14 22 42 22 64 C22 79 34 90 50 90 C66 90 78 79 78 64 C78 42 50 14 50 14 Z M50 49 a13 13 0 1 0 0 26 a13 13 0 1 0 0 -26 Z"
               />
-              <text
-                x="50"
-                y="69"
-                textAnchor="middle"
-                fontFamily="Roboto"
-                fontWeight="700"
-                fontSize="28"
-                fill="#0F766E"
-                letterSpacing="-1"
-              >
-                P
-              </text>
             </svg>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-ink">
