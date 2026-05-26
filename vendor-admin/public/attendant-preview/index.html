@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>findMy Bay · Attendant App preview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #f0eee9; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0B3B36; -webkit-font-smoothing: antialiased; }
+  button { font-family: inherit; }
+  .gallery-wrap {
+    min-height: 100vh; padding: 32px 16px 80px;
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 0%, rgba(20,184,166,0.08) 0%, transparent 60%),
+      #f0eee9;
+  }
+  .gallery-header {
+    max-width: 1280px; margin: 0 auto 32px; padding: 0 16px; text-align: center;
+  }
+  .gallery-header .eyebrow {
+    display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+    text-transform: uppercase; color: #0F766E;
+    background: #E6F7F4; padding: 6px 12px; border-radius: 999px; margin-bottom: 12px;
+  }
+  .gallery-header h1 {
+    margin: 0 0 8px; font-size: 32px; font-weight: 800; letter-spacing: -0.6px; color: #0B3B36;
+  }
+  .gallery-header p {
+    margin: 0; font-size: 14px; color: #5C7A75; max-width: 540px; margin-inline: auto;
+  }
+  .gallery {
+    display: flex; gap: 40px; padding: 24px 0;
+    overflow-x: auto; scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+  .gallery::-webkit-scrollbar { height: 0; }
+  .screen-cell {
+    flex: 0 0 auto; scroll-snap-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    padding-left: max(24px, calc((100vw - 410px) / 2));
+  }
+  .screen-cell:not(:first-child) { padding-left: 0; }
+  .screen-cell:last-child { padding-right: max(24px, calc((100vw - 410px) / 2)); }
+  .screen-label {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: white; border-radius: 14px;
+    padding: 10px 18px; min-width: 280px; text-align: center;
+    box-shadow: 0 4px 14px rgba(11,59,54,0.08);
+  }
+  .screen-label .num {
+    font-size: 10px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
+    color: #0F766E;
+  }
+  .screen-label .title { font-size: 14px; font-weight: 700; color: #0B3B36; }
+  .screen-label .legend { font-size: 11px; color: #5C7A75; line-height: 1.4; max-width: 260px; }
+
+  @media (min-width: 1100px) {
+    .gallery { justify-content: center; }
+    .screen-cell { padding-left: 0; }
+    .screen-cell:last-child { padding-right: 0; }
+  }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root">
+  <div style="text-align:center; padding: 60px 20px; color: #5C7A75;">Loading attendant app preview…</div>
+</div>
+<script type="text/babel" src="shared.jsx"></script>
+<script type="text/babel" src="screens.jsx"></script>
+<script type="text/babel">
+const { Screen1_BayBoard, Screen2_Bookings, Screen3_Scanner, Screen4_Walkin, Screen5_Detail } = window;
+
+const SCREENS = [
+  {
+    n: 1,
+    title: 'Bay Board (home)',
+    legend: 'Bay 2 mid-wash · Khalid · Deep Clean · 8 min countdown. Floating Walk-in / Scan / Bookings FABs.',
+    Component: Screen1_BayBoard,
+  },
+  {
+    n: 2,
+    title: 'All Bookings',
+    legend: 'Today tab active. Hessa’s row swiped left revealing green check-in. 5 status pill variants visible.',
+    Component: Screen2_Bookings,
+  },
+  {
+    n: 3,
+    title: 'QR Scanner',
+    legend: 'Stylised car dashboard behind. 240dp scan zone with primary brackets + scanning bar. Type-code fallback below.',
+    Component: Screen3_Scanner,
+  },
+  {
+    n: 4,
+    title: 'New Walk-in',
+    legend: 'Bay 3 (SUV) selected, Deep Clean selected (AED 200). Optional name/phone accordion collapsed.',
+    Component: Screen4_Walkin,
+  },
+  {
+    n: 5,
+    title: 'Booking Detail (sheet)',
+    legend: 'Hessa Gold · Nissan Patrol · AQUA10 promo applied. Primary action: Check in + send wash-ready push.',
+    Component: Screen5_Detail,
+  },
+];
+
+function App() {
+  return (
+    <div className="gallery-wrap">
+      <div className="gallery-header">
+        <span className="eyebrow">findMy Bay · Attendant App preview</span>
+        <h1>5 hi-fi screens</h1>
+        <p>Android · 390 × 844 · designed for wash-floor staff. Gloves on, sun out, ≤ 2 taps per action. Scroll horizontally to walk through each screen.</p>
+      </div>
+      <div className="gallery">
+        {SCREENS.map(s => (
+          <div className="screen-cell" key={s.n}>
+            <div className="screen-label">
+              <div className="num">Screen {s.n}</div>
+              <div className="title">{s.title}</div>
+              <div className="legend">{s.legend}</div>
+            </div>
+            <s.Component/>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
