@@ -25,10 +25,12 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,28 +38,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import ae.findmybay.attendant.data.BayView
+import ae.findmybay.attendant.data.ServiceGraph
+import ae.findmybay.attendant.data.UpNextView
 import ae.findmybay.attendant.ui.components.CountdownRing
 import ae.findmybay.attendant.ui.components.Eyebrow
 import ae.findmybay.attendant.ui.components.M1Mark
 import ae.findmybay.attendant.ui.components.PillKind
 import ae.findmybay.attendant.ui.components.StatusPill
-import ae.findmybay.attendant.ui.components.Tier
 import ae.findmybay.attendant.ui.components.TierBadge
 import ae.findmybay.attendant.ui.theme.*
-
-private data class Bay(
-    val name: String,
-    val state: String, // free | busy | closed
-    val customer: String? = null,
-    val service: String? = null,
-    val remain: Int = 0,
-    val pct: Float = 0f,
-    val closedNote: String? = null,
-)
-
-private data class UpNext(
-    val time: String, val name: String, val tier: Tier, val service: String, val bay: String,
-)
 
 @Composable
 fun BayBoardScreen(
@@ -65,83 +59,77 @@ fun BayBoardScreen(
     onScan: () -> Unit,
     onBookings: () -> Unit,
     onOpenBooking: (String) -> Unit,
+    onSignedOut: () -> Unit,
 ) {
-    val bays = listOf(
-        Bay("Bay 1", "free"),
-        Bay("Bay 2", "busy", customer = "Khalid", service = "Deep Clean", remain = 8, pct = 0.65f),
-        Bay("Bay 3", "free"),
-        Bay("Bay 4", "closed", closedNote = "Maintenance until 12:00"),
+    val vm: BayBoardViewModel = viewModel(
+        factory = viewModelFactory { initializer { BayBoardViewModel(ServiceGraph.repository) } }
     )
-    val upNext = listOf(
-        UpNext("10:30", "Hessa Al Mansoori", Tier.Gold, "Full Wash", "Bay 1"),
-        UpNext("10:45", "Omar Rashid", Tier.Silver, "Premium Detail", "Bay 3"),
-    )
+    val state by vm.state.collectAsStateWithLifecycle()
+
+    LaunchedEffect(state.signedOut) { if (state.signedOut) onSignedOut() }
+
+    val data = state.data
 
     Box(Modifier.fillMaxSize().background(FmbCream)) {
         Column(Modifier.fillMaxSize()) {
-            StickyHeader(title = "Aqua Car Wash", sub = "Business Bay · Open")
+            StickyHeader(
+                title = data?.brandName ?: "findMy Bay",
+                sub = data?.let { "${it.vendorStatus} · live" } ?: "Loading…",
+                onSignOut = vm::signOut,
+            )
 
-            LazyColumn(
-                Modifier.fillMaxSize(),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    start = 20.dp, end = 20.dp, top = 18.dp, bottom = 120.dp,
-                ),
-            ) {
-                item {
-                    Row(
-                        Modifier.fillMaxWidth().padding(bottom = 12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        Eyebrow("Bays · 4 total")
-                        Text("2 free · 1 busy · 1 closed", fontSize = 11.sp, color = FmbInkSoft, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                // Bay grid — 2 columns, manual rows of 2
-                items(bays.chunked(2)) { rowBays ->
-                    Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        rowBays.forEach { bay ->
-                            Box(Modifier.weight(1f)) { BayTile(bay) }
+            when {
+                state.loading -> LoadingBlock()
+                state.error != null && data == null -> ErrorBlock(state.error!!, onRetry = { vm.load(initial = true) })
+                data != null -> LazyColumn(
+                    Modifier.fillMaxSize(),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 120.dp),
+                ) {
+                    item {
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            Eyebrow("Bays · ${data.bays.size} total")
+                            Text("${data.freeCount} free · ${data.busyCount} busy · ${data.closedCount} closed", fontSize = 11.sp, color = FmbInkSoft, fontWeight = FontWeight.SemiBold)
                         }
-                        if (rowBays.size == 1) Spacer(Modifier.weight(1f))
                     }
-                }
-                item {
-                    Row(
-                        Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        Eyebrow("Up next · 2")
-                        Text("See all", fontSize = 11.sp, color = FmbPrimaryDeep, fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable(onClick = onBookings))
+                    items(data.bays.chunked(2)) { rowBays ->
+                        Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            rowBays.forEach { bay -> Box(Modifier.weight(1f)) { BayTile(bay) } }
+                            if (rowBays.size == 1) Spacer(Modifier.weight(1f))
+                        }
                     }
-                }
-                items(upNext) { u ->
-                    UpNextCard(u, onClick = { onOpenBooking(u.name) })
-                    Spacer(Modifier.height(10.dp))
+                    if (data.upNext.isNotEmpty()) {
+                        item {
+                            Row(
+                                Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Bottom,
+                            ) {
+                                Eyebrow("Up next · ${data.upNext.size}")
+                                Text("See all", fontSize = 11.sp, color = FmbPrimaryDeep, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onBookings))
+                            }
+                        }
+                        items(data.upNext) { u ->
+                            UpNextCard(u, onClick = { onOpenBooking(u.bookingId) })
+                            Spacer(Modifier.height(10.dp))
+                        }
+                    }
                 }
             }
         }
 
         // Floating action bar
         Row(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
+            Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 28.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                Modifier
-                    .weight(1f)
-                    .height(64.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(FmbPrimaryDeep)
-                    .clickable(onClick = onWalkIn),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+                Modifier.weight(1f).height(64.dp).clip(RoundedCornerShape(18.dp)).background(FmbPrimaryDeep).clickable(onClick = onWalkIn),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(Icons.Filled.Add, null, tint = FmbWhite, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
@@ -154,38 +142,46 @@ fun BayBoardScreen(
 }
 
 @Composable
+private fun LoadingBlock() {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = FmbPrimary)
+    }
+}
+
+@Composable
+private fun ErrorBlock(msg: String, onRetry: () -> Unit) {
+    Column(
+        Modifier.fillMaxSize().padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text("Couldn't load the bay board", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = FmbInk)
+        Text(msg, fontSize = 12.sp, color = FmbInkSoft, fontWeight = FontWeight.Medium, modifier = Modifier.padding(top = 6.dp))
+        Spacer(Modifier.height(16.dp))
+        Box(
+            Modifier.clip(RoundedCornerShape(12.dp)).background(FmbMint).clickable(onClick = onRetry).padding(horizontal = 20.dp, vertical = 12.dp),
+        ) { Text("Retry", color = FmbPrimaryDeep, fontWeight = FontWeight.Bold) }
+    }
+}
+
+@Composable
 private fun FabSquare(onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
-        Modifier
-            .size(64.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(FmbWhite)
-            .border(1.5.dp, FmbMintEdge, RoundedCornerShape(18.dp))
-            .clickable(onClick = onClick),
+        Modifier.size(64.dp).clip(RoundedCornerShape(18.dp)).background(FmbWhite).border(1.5.dp, FmbMintEdge, RoundedCornerShape(18.dp)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
 }
 
 @Composable
-private fun BayTile(bay: Bay) {
+private fun BayTile(bay: BayView) {
     val busy = bay.state == "busy"
     val closed = bay.state == "closed"
-    val border = when (bay.state) {
-        "busy" -> FmbSandDeep
-        "closed" -> FmbClosedEdge
-        else -> FmbPrimary
-    }
+    val border = when (bay.state) { "busy" -> FmbSandDeep; "closed" -> FmbClosedEdge; else -> FmbPrimary }
     val bg = if (closed) FmbClosedBg else FmbWhite
     val ink = if (closed) FmbClosedInk else FmbInk
 
     Column(
-        Modifier
-            .fillMaxWidth()
-            .height(168.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(bg)
-            .border(1.5.dp, border, RoundedCornerShape(16.dp))
-            .padding(14.dp),
+        Modifier.fillMaxWidth().height(168.dp).clip(RoundedCornerShape(16.dp)).background(bg).border(1.5.dp, border, RoundedCornerShape(16.dp)).padding(14.dp),
         verticalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -194,16 +190,16 @@ private fun BayTile(bay: Bay) {
         }
         if (busy) {
             Column {
-                Text(bay.customer ?: "", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = FmbInk, letterSpacing = (-0.4).sp)
-                Text(bay.service ?: "", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FmbInkSoft, modifier = Modifier.padding(top = 4.dp))
+                Text(bay.customer ?: "", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = FmbInk, letterSpacing = (-0.4).sp, maxLines = 1)
+                if (bay.service != null) Text(bay.service, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FmbInkSoft, modifier = Modifier.padding(top = 4.dp))
             }
         } else if (closed) {
-            Text(bay.closedNote ?: "", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FmbClosedInk)
+            Text("Closed", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = FmbClosedInk)
         }
         Box {
             when (bay.state) {
                 "free" -> StatusPill(PillKind.Free, "Free")
-                "busy" -> StatusPill(PillKind.Busy, "Busy", sub = "${bay.remain} min")
+                "busy" -> StatusPill(PillKind.Busy, "Busy", sub = "${bay.remainMin} min")
                 else -> StatusPill(PillKind.Closed, "Closed")
             }
         }
@@ -211,20 +207,12 @@ private fun BayTile(bay: Bay) {
 }
 
 @Composable
-private fun UpNextCard(u: UpNext, onClick: () -> Unit) {
+private fun UpNextCard(u: UpNextView, onClick: () -> Unit) {
     Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(FmbWhite)
-            .border(1.5.dp, FmbMintEdge, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(FmbWhite).border(1.5.dp, FmbMintEdge, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier.clip(RoundedCornerShape(10.dp)).background(FmbSand).padding(horizontal = 11.dp, vertical = 6.dp),
-        ) {
+        Box(Modifier.clip(RoundedCornerShape(10.dp)).background(FmbSand).padding(horizontal = 11.dp, vertical = 6.dp)) {
             Text(u.time, color = FmbSandText, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -239,38 +227,31 @@ private fun UpNextCard(u: UpNext, onClick: () -> Unit) {
     }
 }
 
-// ─── Shared sticky header (logo + vendor + info/sign-out) ────────────────────
+// ─── Shared sticky header ────────────────────────────────────────────────────
 @Composable
-fun StickyHeader(title: String, sub: String) {
+fun StickyHeader(title: String, sub: String, onSignOut: () -> Unit = {}) {
     Row(
-        Modifier
-            .fillMaxWidth()
-            .background(FmbCream)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth().background(FmbCream).padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         M1Mark(size = 36.dp)
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
-            Text(title, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = FmbInk, letterSpacing = (-0.3).sp)
+            Text(title, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = FmbInk, letterSpacing = (-0.3).sp, maxLines = 1)
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
                 Box(Modifier.size(6.dp).clip(CircleShape).background(FmbPrimary))
                 Text(sub, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = FmbPrimaryDeep, modifier = Modifier.padding(start = 5.dp))
             }
         }
-        HeaderIconButton { Icon(Icons.Outlined.Info, "Info", tint = FmbInkSoft, modifier = Modifier.size(18.dp)) }
+        HeaderIconButton(onClick = {}) { Icon(Icons.Outlined.Info, "Info", tint = FmbInkSoft, modifier = Modifier.size(18.dp)) }
         Spacer(Modifier.width(8.dp))
-        HeaderIconButton { Icon(Icons.AutoMirrored.Outlined.Logout, "Sign out", tint = FmbInkSoft, modifier = Modifier.size(17.dp)) }
+        HeaderIconButton(onClick = onSignOut) { Icon(Icons.AutoMirrored.Outlined.Logout, "Sign out", tint = FmbInkSoft, modifier = Modifier.size(17.dp)) }
     }
 }
 
 @Composable
-private fun HeaderIconButton(content: @Composable () -> Unit) {
+private fun HeaderIconButton(onClick: () -> Unit, content: @Composable () -> Unit) {
     Box(
-        Modifier
-            .size(36.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(FmbWhite)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(12.dp)),
+        Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(FmbWhite).border(1.dp, FmbMintEdge, RoundedCornerShape(12.dp)).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { content() }
 }

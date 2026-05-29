@@ -1,8 +1,24 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
+
+// Read API_BASE_URL from gradle.properties / local.properties (same convention
+// as the customer :app module).
+val gradleProps = Properties().apply {
+    val f = rootProject.file("gradle.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun prop(name: String, default: String): String =
+    (localProps.getProperty(name) ?: gradleProps.getProperty(name) ?: default)
 
 android {
     namespace = "ae.findmybay.attendant"
@@ -15,6 +31,12 @@ android {
         versionCode = 1
         versionName = "0.1.0"
         vectorDrawables.useSupportLibrary = true
+
+        // Attendant talks to the same backend as the vendor admin + customer app.
+        buildConfigField(
+            "String", "API_BASE_URL",
+            "\"${prop("API_BASE_URL", "https://fmb-backend.bravegrass-00d218a4.uaenorth.azurecontainerapps.io/")}\"",
+        )
     }
 
     buildTypes {
@@ -40,6 +62,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -62,5 +85,19 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.navigation.compose)
+
+    // Networking
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.kotlinx.serialization.json)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.android)
+
+    // Token storage
+    implementation(libs.androidx.datastore.preferences)
 }
