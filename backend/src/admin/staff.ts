@@ -28,6 +28,7 @@ import { requireAuth } from '../auth/middleware.js';
 import { requireVendor } from './middleware.js';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
+import { sendEmail } from '../lib/email.js';
 
 export const staffRouter = Router();
 export const staffPublicRouter = Router();
@@ -51,6 +52,37 @@ function buildAcceptUrl(token: string): string {
   // path-only URL so the owner can paste it under whichever host they're on.
   const base = env.VENDOR_ADMIN_URL?.replace(/\/+$/, '') ?? '';
   return `${base}/accept-invite/${token}`;
+}
+
+/**
+ * Email the invitee their accept link. Best-effort: callers fire-and-forget so
+ * a mail hiccup never blocks the invite (the owner can still copy the URL).
+ */
+async function sendStaffInviteEmail(
+  to: string,
+  role: string,
+  brandName: string,
+  acceptUrl: string,
+): Promise<void> {
+  await sendEmail({
+    to,
+    subject: `You're invited to join ${brandName} on Find My Bay`,
+    tag: 'staff-invite',
+    text:
+      `You've been invited to join ${brandName} as ${role} on Find My Bay.\n\n` +
+      `Accept your invite:\n${acceptUrl}\n\n` +
+      `Sign in (or create an account) with this email address — ${to} — to accept. ` +
+      `The link expires in 14 days.`,
+    html:
+      `<div style="font-family:system-ui,-apple-system,sans-serif;color:#0B3B36">` +
+      `<h2 style="color:#0F766E">You're invited to join ${brandName}</h2>` +
+      `<p>You've been added as <b>${role}</b> on Find My Bay.</p>` +
+      `<p><a href="${acceptUrl}" style="display:inline-block;background:#0F766E;color:#fff;` +
+      `padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Accept invite</a></p>` +
+      `<p style="color:#5C7A75;font-size:13px">Sign in (or create an account) with <b>${to}</b> to accept. ` +
+      `This link expires in 14 days.</p>` +
+      `<p style="color:#5C7A75;font-size:12px">If the button doesn't work, paste this link:<br>${acceptUrl}</p></div>`,
+  });
 }
 
 // ── GET /admin/staff ─────────────────────────────────────────────────────
@@ -160,6 +192,16 @@ staffRouter.post(
       'staff invite created',
     );
 
+    // Email the invitee the accept link. Best-effort — failures are logged but
+    // don't fail the request (the owner still gets the URL in the response).
+    const vendor = await prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { brandName: true },
+    });
+    void sendStaffInviteEmail(email, body.role, vendor?.brandName ?? 'the team', buildAcceptUrl(token)).catch(
+      (err) => logger.error({ err, inviteId: invite.id }, 'failed to send staff invite email'),
+    );
+
     res.status(201).json({
       id: invite.id,
       email: invite.email,
@@ -187,6 +229,17 @@ staffRouter.post(
       where: { id: invite.id },
       data: { expiresAt: new Date(Date.now() + INVITE_TTL_MS) },
     });
+
+    const vendor = await prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { brandName: true },
+    });
+    void sendStaffInviteEmail(
+      updated.email,
+      String(updated.role),
+      vendor?.brandName ?? 'the team',
+      buildAcceptUrl(updated.token),
+    ).catch((err) => logger.error({ err, inviteId: updated.id }, 'failed to resend staff invite email'));
 
     res.json({
       id: updated.id,
