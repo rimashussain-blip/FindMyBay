@@ -32,15 +32,19 @@ export default function LoginPage() {
             fullName: fullName.trim() || undefined,
           });
       const role = res.user.role as UserRole;
+      const mustChange = res.user.mustChangePassword ?? false;
       setSession({
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
         userId: res.user.id,
         role,
+        mustChangePassword: mustChange,
       });
-      // Honor ?returnTo= (used by the staff-invite flow) before role-based
-      // defaults. Only allow same-origin paths to avoid open-redirect abuse.
-      if (returnTo && returnTo.startsWith('/')) {
+      // Staff created with a temp password must set their own first.
+      if (mustChange) {
+        navigate('/set-password', { replace: true });
+      } else if (returnTo && returnTo.startsWith('/')) {
+        // Honor ?returnTo= (staff-invite flow). Only same-origin paths.
         navigate(returnTo, { replace: true });
       } else {
         // Platform admins land on the vendor approval queue; vendor staff go

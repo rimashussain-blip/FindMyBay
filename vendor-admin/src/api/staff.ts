@@ -41,8 +41,16 @@ export async function listStaff(): Promise<StaffListResponse> {
   return data;
 }
 
-export async function inviteStaff(body: { email: string; role: StaffRole }): Promise<StaffInvite> {
-  const { data } = await api.post<StaffInvite>('/admin/staff/invite', body);
+// Direct add: backend creates the account (temp password emailed) or reuses an
+// existing one, attaches the membership, and emails the teammate.
+export interface AddStaffResult {
+  email: string;
+  role: StaffRole;
+  created: boolean; // true = brand-new account (temp password emailed)
+}
+
+export async function inviteStaff(body: { email: string; role: StaffRole }): Promise<AddStaffResult> {
+  const { data } = await api.post<AddStaffResult>('/admin/staff/invite', body);
   return data;
 }
 

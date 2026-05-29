@@ -21,6 +21,7 @@ import {
   resendInvite,
   revokeInvite,
   suspendStaff,
+  type AddStaffResult,
   type StaffInvite,
   type StaffMember,
   type StaffRole,
@@ -365,18 +366,18 @@ function InviteCard({
 function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
   const [email, setEmail] = useState('');
   const [role, setRole] = useState<StaffRole>('attendant');
-  const [created, setCreated] = useState<StaffInvite | null>(null);
+  const [created, setCreated] = useState<AddStaffResult | null>(null);
 
   const mut = useMutation({
     mutationFn: () => inviteStaff({ email: email.trim().toLowerCase(), role }),
-    onSuccess: (inv) => {
-      setCreated(inv);
+    onSuccess: (res) => {
+      setCreated(res);
       onCreated();
     },
   });
 
   return (
-    <ModalShell onClose={onClose} title={created ? 'Invite ready to share' : 'Invite teammate'}>
+    <ModalShell onClose={onClose} title={created ? 'Teammate added' : 'Add teammate'}>
       {!created ? (
         <div className="flex flex-col gap-4">
           <div>
@@ -426,32 +427,32 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
               disabled={!email || mut.isPending}
               className="btn-primary"
             >
-              {mut.isPending ? 'Creating…' : 'Create invite'}
+              {mut.isPending ? 'Adding…' : 'Add teammate'}
             </button>
           </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-ink-soft">
-            Share this URL with <span className="font-semibold text-ink">{created.email}</span>.
-            They'll sign in (or sign up) and join your team as a{' '}
-            <span className="font-semibold text-ink capitalize">{created.role}</span>. The link
-            expires in 14 days.
+            <span className="font-semibold text-ink">{created.email}</span> was added as a{' '}
+            <span className="font-semibold text-ink capitalize">{created.role}</span>.
           </p>
-          <div className="rounded-xl border border-mint-edge bg-mint/30 px-3 py-3 text-xs font-mono break-all text-ink">
-            {created.acceptUrl}
+          <div className="rounded-xl border border-mint-edge bg-mint/30 px-3 py-3 text-sm text-ink">
+            {created.created ? (
+              <>
+                We emailed them a <span className="font-semibold">temporary password</span>. They
+                sign in at this admin and are asked to set their own password on first login.
+              </>
+            ) : (
+              <>
+                They already have a Find My Bay account, so they sign in with their{' '}
+                <span className="font-semibold">existing password</span>. We emailed them a note
+                that they've been added.
+              </>
+            )}
           </div>
           <div className="flex items-center justify-end gap-2">
-            <button
-              onClick={async () => {
-                await navigator.clipboard.writeText(created.acceptUrl);
-                alert('Copied!');
-              }}
-              className="btn-primary"
-            >
-              Copy URL
-            </button>
-            <button onClick={onClose} className="btn-outlined">
+            <button onClick={onClose} className="btn-primary">
               Done
             </button>
           </div>

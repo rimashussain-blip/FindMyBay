@@ -8,12 +8,15 @@ interface AuthState {
   refreshToken: string | null;
   userId: string | null;
   role: UserRole | null;
+  mustChangePassword: boolean;
   setSession: (s: {
     accessToken: string;
     refreshToken: string;
     userId: string;
     role: UserRole;
+    mustChangePassword?: boolean;
   }) => void;
+  clearMustChange: () => void;
   clear: () => void;
 }
 
@@ -24,9 +27,12 @@ export const useAuth = create<AuthState>()(
       refreshToken: null,
       userId: null,
       role: null,
-      setSession: ({ accessToken, refreshToken, userId, role }) =>
-        set({ accessToken, refreshToken, userId, role }),
-      clear: () => set({ accessToken: null, refreshToken: null, userId: null, role: null }),
+      mustChangePassword: false,
+      setSession: ({ accessToken, refreshToken, userId, role, mustChangePassword }) =>
+        set({ accessToken, refreshToken, userId, role, mustChangePassword: mustChangePassword ?? false }),
+      clearMustChange: () => set({ mustChangePassword: false }),
+      clear: () =>
+        set({ accessToken: null, refreshToken: null, userId: null, role: null, mustChangePassword: false }),
     }),
     { name: 'fmb-vendor-auth' },
   ),

@@ -15,6 +15,7 @@ import WalkInPage from './pages/WalkInPage';
 import PromotionsPage from './pages/PromotionsPage';
 import StaffPage from './pages/StaffPage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
+import SetPasswordPage from './pages/SetPasswordPage';
 import FinancePage from './pages/FinancePage';
 import InventoryPage from './pages/InventoryPage';
 import ProcurementPage from './pages/ProcurementPage';
@@ -59,6 +60,16 @@ export default function App() {
             the invite before having an account. */}
         <Route path="/accept-invite/:token" element={<AcceptInvitePage />} />
 
+        {/* Forced first-login password change for temp-password staff. */}
+        <Route
+          path="/set-password"
+          element={
+            <Protected>
+              <SetPasswordPage />
+            </Protected>
+          }
+        />
+
         <Route
           path="/platform/*"
           element={
@@ -83,6 +94,9 @@ export default function App() {
 
 function VendorShell() {
   const role = useAuth((s) => s.role);
+  const mustChange = useAuth((s) => s.mustChangePassword);
+  // Temp-password staff must set their own password before anything else.
+  if (mustChange) return <Navigate to="/set-password" replace />;
   // A platform admin who lands on a vendor URL gets bounced to their queue.
   if (role === 'admin') return <Navigate to="/platform/vendors" replace />;
   return (
@@ -111,6 +125,8 @@ function VendorShell() {
 
 function PlatformShell() {
   const role = useAuth((s) => s.role);
+  const mustChange = useAuth((s) => s.mustChangePassword);
+  if (mustChange) return <Navigate to="/set-password" replace />;
   // Anyone other than a super admin who stumbles onto /platform/* gets sent
   // back to the vendor area. The backend will 403 anyway, but redirecting
   // beats showing them broken pages.

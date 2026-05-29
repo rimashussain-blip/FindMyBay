@@ -10,6 +10,7 @@ export interface AuthSession {
     fullName: string | null;
     role: string;
     emailVerifiedAt: string | null;
+    mustChangePassword?: boolean;
   };
 }
 
@@ -53,6 +54,11 @@ export const completePasswordReset = async (input: {
 }): Promise<AuthSession> => {
   const { data } = await api.post('/auth/password/reset', input);
   return data;
+};
+
+// Authenticated change (first-login forced reset for temp-password accounts).
+export const changePassword = async (newPassword: string): Promise<void> => {
+  await api.post('/auth/password/change', { newPassword });
 };
 
 // ── Email verification ──────────────────────────────────────────────────
