@@ -29,7 +29,7 @@ async function main() {
       where: { userId: user.id },
       include: { vendor: { select: { brandName: true, id: true } } },
     });
-    console.log(`\n${EMAIL} (user ${user.id}, role=${user.role}) memberships (${ms.length}):`);
+    console.log(`\n${EMAIL} (user ${user.id}, role=${user.role}, mustChangePassword=${user.mustChangePassword}) memberships (${ms.length}):`);
     for (const m of ms) console.log(`    ${m.vendor.brandName} (${m.vendor.id}) — ${m.role}/${m.status}`);
   }
 }

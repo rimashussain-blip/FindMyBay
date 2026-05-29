@@ -531,6 +531,7 @@ export async function loginWithEmail(input: { email: string; password: string })
       fullName: user.fullName,
       role: user.role,
       emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+      mustChangePassword: user.mustChangePassword,
     },
   };
 }
