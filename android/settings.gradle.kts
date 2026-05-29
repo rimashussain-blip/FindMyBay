@@ -22,3 +22,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "FindMyBay"
 include(":app")
+include(":attendant")

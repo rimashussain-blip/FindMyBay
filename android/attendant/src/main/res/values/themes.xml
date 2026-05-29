@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme. The actual UI colours are driven by the Compose
+         Material3 scheme in Theme.kt; this XML theme only governs the
+         splash window + status bar before Compose mounts. -->
+    <style name="Theme.FmbAttendant" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#FFF7EC</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#FFF7EC</item>
+        <item name="android:windowBackground">@color/fmb_cream</item>
+    </style>
+</resources>
