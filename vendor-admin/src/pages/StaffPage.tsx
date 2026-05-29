@@ -438,18 +438,8 @@ function InviteModal({ onClose, onCreated }: { onClose: () => void; onCreated: (
             <span className="font-semibold text-ink capitalize">{created.role}</span>.
           </p>
           <div className="rounded-xl border border-mint-edge bg-mint/30 px-3 py-3 text-sm text-ink">
-            {created.created ? (
-              <>
-                We emailed them a <span className="font-semibold">temporary password</span>. They
-                sign in at this admin and are asked to set their own password on first login.
-              </>
-            ) : (
-              <>
-                They already have a Find My Bay account, so they sign in with their{' '}
-                <span className="font-semibold">existing password</span>. We emailed them a note
-                that they've been added.
-              </>
-            )}
+            We emailed them a <span className="font-semibold">temporary password</span>. They sign
+            in (web or the attendant app) and are asked to set their own password on first login.
           </div>
           <div className="flex items-center justify-end gap-2">
             <button onClick={onClose} className="btn-primary">

@@ -205,14 +205,25 @@ staffRouter.post(
     const globalRole =
       role === 'owner' ? 'vendor_owner' : role === 'manager' ? 'vendor_manager' : 'attendant';
 
+    // Always issue a fresh temp password + force a change on first login —
+    // for new and existing accounts alike — so the owner can always hand the
+    // teammate working credentials.
+    const tempPassword = 'Fmb' + crypto.randomBytes(5).toString('hex') + '!';
+    const passwordHash = await bcrypt.hash(tempPassword, 10);
+
     let userId: string;
-    let tempPassword: string | null = null;
     if (existingUser) {
-      // Keep their existing login + password; just grant membership.
+      await prisma.user.update({
+        where: { id: existingUser.id },
+        data: { passwordHash, mustChangePassword: true },
+      });
+      // Drop existing sessions so the old password can't keep a session alive.
+      await prisma.refreshToken.updateMany({
+        where: { userId: existingUser.id, revokedAt: null },
+        data: { revokedAt: new Date() },
+      });
       userId = existingUser.id;
     } else {
-      tempPassword = 'Fmb' + crypto.randomBytes(5).toString('hex') + '!';
-      const passwordHash = await bcrypt.hash(tempPassword, 10);
       const created = await prisma.user.create({
         data: {
           email,
