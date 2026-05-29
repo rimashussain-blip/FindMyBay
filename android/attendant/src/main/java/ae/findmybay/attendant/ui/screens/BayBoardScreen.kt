@@ -62,6 +62,7 @@ fun BayBoardScreen(
     onBookings: () -> Unit,
     onOpenBooking: (String) -> Unit,
     onSignedOut: () -> Unit,
+    onMustChangePassword: () -> Unit = {},
 ) {
     val vm: BayBoardViewModel = viewModel(
         factory = viewModelFactory { initializer { BayBoardViewModel(ServiceGraph.repository) } }
@@ -72,6 +73,10 @@ fun BayBoardScreen(
     RefreshOnResume { vm.load() }
 
     val data = state.data
+    // Staff created with a temp password must set their own before using the app.
+    LaunchedEffect(data?.mustChangePassword) {
+        if (data?.mustChangePassword == true) onMustChangePassword()
+    }
 
     Box(Modifier.fillMaxSize().background(FmbCream)) {
         Column(Modifier.fillMaxSize()) {

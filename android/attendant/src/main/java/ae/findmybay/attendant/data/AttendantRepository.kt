@@ -61,6 +61,7 @@ data class BayBoardData(
     val freeCount: Int,
     val busyCount: Int,
     val closedCount: Int,
+    val mustChangePassword: Boolean = false,
 )
 
 class AttendantRepository(
@@ -160,7 +161,13 @@ class AttendantRepository(
             freeCount = bays.count { it.state == "free" },
             busyCount = bays.count { it.state == "busy" },
             closedCount = bays.count { it.state == "closed" },
+            mustChangePassword = me.mustChangePassword,
         )
+    }
+
+    /** First-login set-new-password (clears the server's mustChangePassword). */
+    suspend fun changePassword(newPassword: String) {
+        api.changePassword(ChangePasswordBody(newPassword))
     }
 
     /** Full booking list for the Bookings screen + the detail sheet. */

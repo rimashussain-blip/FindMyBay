@@ -12,6 +12,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import ae.findmybay.attendant.data.SessionManager
 import ae.findmybay.attendant.ui.screens.BayBoardScreen
+import ae.findmybay.attendant.ui.screens.ChangePasswordScreen
 import ae.findmybay.attendant.ui.screens.BookingDetailScreen
 import ae.findmybay.attendant.ui.screens.BookingsScreen
 import ae.findmybay.attendant.ui.screens.LoginScreen
@@ -21,6 +22,7 @@ import ae.findmybay.attendant.ui.screens.WalkInScreen
 object Routes {
     const val LOGIN = "login"
     const val BAY_BOARD = "bay-board"
+    const val CHANGE_PASSWORD = "change-password"
     const val BOOKINGS = "bookings"
     const val SCANNER = "scanner"
     const val WALK_IN = "walk-in"
@@ -57,7 +59,19 @@ fun AttendantNav(startDestination: String) {
                 onBookings = { nav.navigate(Routes.BOOKINGS) },
                 onOpenBooking = { id -> nav.navigate(Routes.detail(id)) },
                 onSignedOut = { nav.toLogin() },
+                onMustChangePassword = {
+                    nav.navigate(Routes.CHANGE_PASSWORD) {
+                        popUpTo(Routes.BAY_BOARD) { inclusive = true }
+                    }
+                },
             )
+        }
+        composable(Routes.CHANGE_PASSWORD) {
+            ChangePasswordScreen(onDone = {
+                nav.navigate(Routes.BAY_BOARD) {
+                    popUpTo(Routes.CHANGE_PASSWORD) { inclusive = true }
+                }
+            })
         }
         composable(Routes.BOOKINGS) {
             BookingsScreen(onBack = { nav.popBackStack() }, onOpenBooking = { id -> nav.navigate(Routes.detail(id)) })

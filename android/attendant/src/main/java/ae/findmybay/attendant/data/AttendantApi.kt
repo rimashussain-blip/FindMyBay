@@ -23,6 +23,9 @@ interface AttendantApi {
     @GET("admin/me")
     suspend fun me(): MeResponse
 
+    @POST("auth/password/change")
+    suspend fun changePassword(@Body body: ChangePasswordBody): OkResponse
+
     @GET("admin/bookings/today")
     suspend fun bookingsToday(): BookingsResponse
 

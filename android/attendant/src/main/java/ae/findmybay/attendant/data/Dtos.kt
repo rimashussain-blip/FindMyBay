@@ -31,7 +31,18 @@ data class RefreshResponse(val accessToken: String, val refreshToken: String)
 
 // ─── /admin/me ──────────────────────────────────────────────────────────────
 @Serializable
-data class MeResponse(val vendor: VendorDto, val role: String)
+data class MeResponse(
+    val vendor: VendorDto,
+    val role: String,
+    val mustChangePassword: Boolean = false,
+)
+
+// POST /auth/password/change
+@Serializable
+data class ChangePasswordBody(val newPassword: String)
+
+@Serializable
+data class OkResponse(val ok: Boolean = false)
 
 @Serializable
 data class VendorDto(
