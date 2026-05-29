@@ -23,12 +23,14 @@ const schema = z.object({
   // Email delivery for password reset + email verification.
   //   console  — log the email body to stdout (dev / preview)
   //   postmark — use Postmark's transactional API (POSTMARK_TOKEN required)
-  // Postmark picked over SendGrid because the free tier (100 emails/day on
-  // Postmark, 100 emails/day on SendGrid) is identical and Postmark's
-  // API is much simpler. Swap providers later by adding a case in
-  // src/lib/email.ts; the call sites are abstracted.
-  EMAIL_DELIVERY: z.enum(['console', 'postmark']).default('console'),
+  //   acs      — Azure Communication Services Email (ACS_CONNECTION_STRING required)
+  // Swap providers by adding a case in src/lib/email.ts; the call sites are
+  // abstracted.
+  EMAIL_DELIVERY: z.enum(['console', 'postmark', 'acs']).default('console'),
   POSTMARK_TOKEN: z.string().optional().default(''),
+  // Azure Communication Services connection string for the 'acs' provider.
+  // Format: endpoint=https://<res>.communication.azure.com/;accesskey=<key>
+  ACS_CONNECTION_STRING: z.string().optional().default(''),
   // The "From" address on all outbound mail. Must be a verified sender
   // domain in Postmark. Falls back to a noreply@ on the configured
   // marketing domain so dev doesn't need a separate variable.

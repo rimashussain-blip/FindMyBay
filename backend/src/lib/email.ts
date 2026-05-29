@@ -46,8 +46,44 @@ export async function sendEmail(payload: EmailPayload): Promise<void> {
       await sendViaPostmark(payload);
       return;
 
+    case 'acs':
+      if (!env.ACS_CONNECTION_STRING) {
+        throw new HttpError(500, 'ACS_CONNECTION_STRING not configured', { code: 'email_provider' });
+      }
+      await sendViaAcs(payload);
+      return;
+
     default:
       throw new HttpError(500, `Unknown EMAIL_DELIVERY: ${env.EMAIL_DELIVERY as string}`);
+  }
+}
+
+// Azure Communication Services Email. The SDK handles the HMAC request
+// signing, so we let it own the connection string. `beginSend` submits the
+// message (202 Accepted) and returns a poller; we don't block on full
+// delivery — submission success is enough for a transactional send.
+async function sendViaAcs(payload: EmailPayload): Promise<void> {
+  // Lazy import so the SDK only loads when the ACS provider is selected.
+  const { EmailClient } = await import('@azure/communication-email');
+  const client = new EmailClient(env.ACS_CONNECTION_STRING);
+  const senderAddress = env.EMAIL_FROM;
+  try {
+    await client.beginSend({
+      senderAddress,
+      content: {
+        subject: payload.subject,
+        plainText: payload.text,
+        html:
+          payload.html ??
+          `<pre style="font-family:system-ui,-apple-system">${escapeHtml(payload.text)}</pre>`,
+      },
+      recipients: { to: [{ address: payload.to }] },
+    });
+  } catch (err) {
+    logger.error({ err }, 'acs email send failed');
+    throw new HttpError(502, 'Email provider rejected the message', {
+      code: 'email_send_failed',
+    });
   }
 }
 
