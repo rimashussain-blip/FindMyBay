@@ -98,3 +98,27 @@ data class BookingServiceDto(
 
 @Serializable
 data class BookingBayDto(val id: String, val name: String)
+
+// ─── Actions ──────────────────────────────────────────────────────────────
+@Serializable
+data class StatusBody(val status: String) // confirmed|in_progress|completed|cancelled|no_show
+
+@Serializable
+data class StatusResponse(val id: String, val status: String)
+
+@Serializable
+data class WalkInBody(
+    val bayId: String,
+    val serviceId: String,
+    val walkInName: String? = null,
+    val walkInPhone: String? = null,
+)
+
+@Serializable
+data class CheckinCodeBody(val code: String)
+
+@Serializable
+data class CheckinResponse(
+    val ok: Boolean = false,
+    val alreadyCheckedIn: Boolean = false,
+)

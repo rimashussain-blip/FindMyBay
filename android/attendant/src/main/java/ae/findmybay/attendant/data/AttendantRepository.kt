@@ -1,10 +1,10 @@
 package ae.findmybay.attendant.data
 
 import ae.findmybay.attendant.ui.components.Tier
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import kotlin.math.roundToInt
 
 // ─── Domain models the UI consumes ──────────────────────────────────────────
 data class BayView(
@@ -15,6 +15,26 @@ data class BayView(
     val remainMin: Int = 0,
     val pct: Float = 0f,
 )
+
+// A booking row for the Bookings list + the detail sheet.
+data class BookingRow(
+    val id: String,
+    val time: String,
+    val name: String,
+    val phone: String?,
+    val tier: Tier,
+    val service: String,
+    val durationMin: Int,
+    val bay: String,
+    val status: String, // raw backend status
+    val totalAed: Int,
+    val isWalkIn: Boolean,
+    val isFuture: Boolean, // slotStart is on a later calendar day than today
+)
+
+data class BayOption(val id: String, val name: String, val bayType: String, val status: String)
+data class ServiceOption(val id: String, val name: String, val durationMin: Int, val priceAed: Int)
+data class WalkInOptions(val bays: List<BayOption>, val services: List<ServiceOption>)
 
 data class UpNextView(
     val bookingId: String,
@@ -41,6 +61,14 @@ class AttendantRepository(
 ) {
     private val api get() = apiProvider()
 
+    // Last-loaded bookings, kept so the detail sheet can render a tapped row
+    // without a dedicated single-booking endpoint.
+    @Volatile
+    var cachedBookings: List<BookingRow> = emptyList()
+        private set
+
+    fun bookingById(id: String): BookingRow? = cachedBookings.firstOrNull { it.id == id }
+
     suspend fun login(email: String, password: String) {
         val res = api.login(LoginBody(email.trim().lowercase(), password))
         tokenStore.save(res.accessToken, res.refreshToken, res.user.role)
@@ -54,6 +82,7 @@ class AttendantRepository(
     suspend fun loadBayBoard(): BayBoardData {
         val me = api.me()
         val bookings = api.bookingsToday().items
+        cachedBookings = bookings.map { it.toRow() }
         tokenStore.saveBrand(me.vendor.brandName)
 
         val now = OffsetDateTime.now()
@@ -104,6 +133,56 @@ class AttendantRepository(
             closedCount = bays.count { it.state == "closed" },
         )
     }
+
+    /** Full booking list for the Bookings screen + the detail sheet. */
+    suspend fun loadBookings(): List<BookingRow> =
+        api.bookingsToday().items.map { it.toRow() }.also { cachedBookings = it }
+
+    /** Bays + services for the walk-in pickers. */
+    suspend fun loadWalkInOptions(): WalkInOptions {
+        val me = api.me()
+        return WalkInOptions(
+            bays = me.vendor.bays.map { BayOption(it.id, it.name, it.bayType, it.status) },
+            services = me.vendor.services.map { ServiceOption(it.id, it.name, it.durationMin, it.priceAed) },
+        )
+    }
+
+    suspend fun setStatus(id: String, status: String) {
+        api.setBookingStatus(id, StatusBody(status))
+    }
+
+    suspend fun createWalkIn(bayId: String, serviceId: String, name: String?, phone: String?) {
+        api.createWalkIn(
+            WalkInBody(
+                bayId = bayId,
+                serviceId = serviceId,
+                walkInName = name?.trim()?.ifBlank { null },
+                walkInPhone = phone?.trim()?.ifBlank { null },
+            )
+        )
+    }
+
+    private fun BookingDto.toRow(): BookingRow {
+        return BookingRow(
+            id = id,
+            time = formatTime(slotStart),
+            name = customer.fullName ?: customer.phone ?: "Walk-in",
+            phone = customer.phone,
+            tier = tierOf(customer.loyalty?.tier),
+            service = service.name,
+            durationMin = service.durationMin,
+            bay = bay.name,
+            status = status,
+            totalAed = totalAed,
+            isWalkIn = isWalkIn,
+            isFuture = isFutureDay(slotStart),
+        )
+    }
+
+    private fun isFutureDay(iso: String): Boolean = try {
+        val d = OffsetDateTime.parse(iso).atZoneSameInstant(ZoneId.systemDefault()).toLocalDate()
+        d.isAfter(LocalDate.now())
+    } catch (e: Exception) { false }
 
     // ─── helpers ──────────────────────────────────────────────────────────
     private fun tierOf(raw: String?): Tier = when (raw?.lowercase()) {

@@ -2,9 +2,11 @@ package ae.findmybay.attendant.nav
 
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import ae.findmybay.attendant.ui.screens.BayBoardScreen
 import ae.findmybay.attendant.ui.screens.BookingDetailScreen
 import ae.findmybay.attendant.ui.screens.BookingsScreen
@@ -18,7 +20,8 @@ object Routes {
     const val BOOKINGS = "bookings"
     const val SCANNER = "scanner"
     const val WALK_IN = "walk-in"
-    const val DETAIL = "detail"
+    const val DETAIL = "detail/{id}"
+    fun detail(id: String) = "detail/$id"
 }
 
 @Composable
@@ -37,12 +40,12 @@ fun AttendantNav(startDestination: String) {
                 onWalkIn = { nav.navigate(Routes.WALK_IN) },
                 onScan = { nav.navigate(Routes.SCANNER) },
                 onBookings = { nav.navigate(Routes.BOOKINGS) },
-                onOpenBooking = { nav.navigate(Routes.DETAIL) },
+                onOpenBooking = { id -> nav.navigate(Routes.detail(id)) },
                 onSignedOut = { nav.toLogin() },
             )
         }
         composable(Routes.BOOKINGS) {
-            BookingsScreen(onBack = { nav.popBackStack() }, onOpenBooking = { nav.navigate(Routes.DETAIL) })
+            BookingsScreen(onBack = { nav.popBackStack() }, onOpenBooking = { id -> nav.navigate(Routes.detail(id)) })
         }
         composable(Routes.SCANNER) {
             ScannerScreen(onClose = { nav.popBackStack() }, onTypeCode = { nav.popBackStack() })
@@ -50,8 +53,12 @@ fun AttendantNav(startDestination: String) {
         composable(Routes.WALK_IN) {
             WalkInScreen(onBack = { nav.popBackStack() }, onStart = { nav.popBackStack() })
         }
-        composable(Routes.DETAIL) {
-            BookingDetailScreen(onClose = { nav.popBackStack() })
+        composable(
+            Routes.DETAIL,
+            arguments = listOf(navArgument("id") { type = NavType.StringType }),
+        ) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("id").orEmpty()
+            BookingDetailScreen(bookingId = id, onClose = { nav.popBackStack() })
         }
     }
 }
