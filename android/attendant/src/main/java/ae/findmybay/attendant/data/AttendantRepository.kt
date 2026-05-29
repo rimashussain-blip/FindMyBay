@@ -84,6 +84,18 @@ class AttendantRepository(
     suspend fun login(email: String, password: String) {
         val res = api.login(LoginBody(email.trim().lowercase(), password))
         tokenStore.save(res.accessToken, res.refreshToken, res.user.role)
+        // /auth/login succeeds for any account (it's shared with the customer
+        // app + vendor admin). The attendant app is staff-only, so verify the
+        // account is actually vendor staff before declaring success — otherwise
+        // a non-staff user lands on a broken Bay Board with a raw 403. On
+        // failure, drop the tokens so we don't leave a half-signed-in state and
+        // rethrow so the login screen shows the friendly message.
+        try {
+            api.me()
+        } catch (e: Exception) {
+            tokenStore.clear()
+            throw e
+        }
     }
 
     suspend fun signOut() {
