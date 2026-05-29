@@ -15,6 +15,7 @@ import {
   type Emirate,
   type WeeklyHours,
 } from '../api/admin';
+import LogoUpload from '../components/LogoUpload';
 
 const EMIRATES: { value: Emirate; label: string }[] = [
   { value: 'AbuDhabi', label: 'Abu Dhabi' },
@@ -49,6 +50,7 @@ const DEFAULT_HOURS: WeeklyHours = {
 interface FormState {
   brandName: string;
   tradeLicenseNo: string;
+  trnNumber: string;
   emirate: Emirate;
   city: string;
   addressLine: string;
@@ -62,6 +64,7 @@ function vendorToForm(v: AdminVendor): FormState {
   return {
     brandName: v.brandName,
     tradeLicenseNo: v.tradeLicenseNo ?? '',
+    trnNumber: v.trnNumber ?? '',
     emirate: v.emirate,
     city: v.city,
     addressLine: v.addressLine ?? '',
@@ -121,9 +124,17 @@ export default function BrandPage() {
       setError('Brand name is required.');
       return;
     }
+    // TRN sanity check (15 digits per FTA). Allow blank, but reject
+    // anything obviously malformed before hitting the server.
+    const trnDigits = form.trnNumber.replace(/\D/g, '');
+    if (trnDigits && trnDigits.length !== 15) {
+      setError('TRN must be 15 digits.');
+      return;
+    }
     save.mutate({
       brandName: form.brandName.trim(),
       tradeLicenseNo: form.tradeLicenseNo.trim() || null,
+      trnNumber: trnDigits || null,
       emirate: form.emirate,
       city: form.city.trim(),
       addressLine: form.addressLine.trim() || null,
@@ -195,13 +206,25 @@ export default function BrandPage() {
             onChange={(e) => setForm((f) => f && { ...f, tradeLicenseNo: e.target.value })}
           />
         </Field>
-        <Field label="Logo URL" hint="A square PNG works best. File-upload is coming soon.">
+        <Field label="TRN (Tax Registration Number)">
           <input
             className="input"
+            value={form.trnNumber}
+            disabled={!canEdit}
+            placeholder="15 digits — e.g. 100123456700003"
+            inputMode="numeric"
+            maxLength={20}
+            onChange={(e) => setForm((f) => f && { ...f, trnNumber: e.target.value })}
+          />
+          <p className="mt-1 text-[11px] text-ink-soft">
+            Required on UAE VAT-compliant tax invoices. Leave blank until you're VAT-registered.
+          </p>
+        </Field>
+        <Field label="Logo">
+          <LogoUpload
             value={form.logoUrl}
             disabled={!canEdit}
-            placeholder="https://…/logo.png"
-            onChange={(e) => setForm((f) => f && { ...f, logoUrl: e.target.value })}
+            onChange={(next) => setForm((f) => f && { ...f, logoUrl: next })}
           />
         </Field>
       </Section>

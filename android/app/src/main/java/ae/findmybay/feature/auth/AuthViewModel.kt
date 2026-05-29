@@ -83,6 +83,36 @@ class AuthViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Exchange the Google ID token returned by GoogleSignInClient for our
+     * own JWT pair. Same end-state as a successful OTP flow.
+     */
+    fun signInWithGoogle(
+        idToken: String,
+        onProfileComplete: () -> Unit,
+        onNeedsOnboarding: () -> Unit,
+    ) {
+        _state.update { it.copy(loading = true, error = null) }
+        viewModelScope.launch {
+            runCatching { auth.signInWithGoogle(idToken) }
+                .onSuccess { session ->
+                    _state.update { it.copy(loading = false, verified = true) }
+                    // Brand-new Google sign-in → carPlate/phone unset → drop
+                    // them on the onboarding screen. Returning customers go
+                    // straight to the map.
+                    if (session.profileComplete) onProfileComplete() else onNeedsOnboarding()
+                }
+                .onFailure { e ->
+                    _state.update { it.copy(loading = false, error = friendly(e)) }
+                }
+        }
+    }
+
+    /** Surfacing for the screen — shows a friendly toast on Google failure. */
+    fun setExternalError(message: String) {
+        _state.update { it.copy(error = message, loading = false) }
+    }
+
     private fun friendly(e: Throwable): String =
         e.message?.takeIf { it.isNotBlank() } ?: "Something went wrong, please try again."
 

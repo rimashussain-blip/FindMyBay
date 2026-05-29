@@ -21,6 +21,15 @@ export async function sendWashCompletePush(bookingId: string): Promise<void> {
     return;
   }
 
+  // Walk-in bookings have no registered customer, so there are no device
+  // tokens to push to. Quietly skip — vendor staff is the only audience and
+  // they already know the wash is done because they triggered the status
+  // change themselves.
+  if (!booking.customerId) {
+    logger.info({ bookingId }, 'wash-complete push: walk-in booking, skipping');
+    return;
+  }
+
   const tokens = await prisma.deviceToken.findMany({
     where: { userId: booking.customerId },
     select: { fcmToken: true },

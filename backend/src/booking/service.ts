@@ -3,23 +3,41 @@
 import { prisma } from '../config/db.js';
 import { HttpError } from '../lib/error.js';
 import { logger } from '../lib/logger.js';
+import { priceLineFromService } from '../lib/vat.js';
+import { evaluatePromo } from '../lib/promo.js';
 
 export interface CreateBookingInput {
   customerId: string;
   vendorId: string;
   serviceId: string;
   slotStartIso: string; // ISO8601 with timezone
+  /** Optional promo code customer entered at checkout. Uppercased before lookup. */
+  promoCode?: string;
 }
 
 export interface BookingDto {
   id: string;
   status: string;
-  vendor: { id: string; brandName: string; city: string; emirate: string };
+  vendor: {
+    id: string;
+    brandName: string;
+    city: string;
+    emirate: string;
+    logoUrl: string | null;
+  };
   service: { id: string; name: string; durationMin: number; priceAed: number };
   bay: { id: string; name: string };
   slotStart: string;
   slotEnd: string;
+  /** Net total after promo discount + VAT-inclusive math. */
   totalAed: number;
+  vatAed: number;
+  /** AED knocked off via a promo code at create time. 0 if none applied. */
+  discountAed: number;
+  /** Code of the promo that was applied (so the receipt can show it). */
+  promoCode: string | null;
+  /** FTA-compliant invoice number, assigned once the booking is billable. */
+  invoiceNumber: string | null;
   createdAt: string;
 }
 
@@ -84,7 +102,70 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
     if (!bay)
       throw new HttpError(409, 'All bays are booked for this slot', { code: 'no_slot_available' });
 
-    return tx.booking.create({
+    const { totalAed: grossTotal, vatAed } = priceLineFromService(
+      service.priceAed,
+      service.vatInclusive,
+    );
+
+    // ── Promo evaluation (optional) ─────────────────────────────────────
+    // If the customer typed a code, validate it server-side and apply
+    // the discount before we write the booking. Per-customer + global
+    // usage caps are evaluated against the current redemption counts
+    // INSIDE the transaction so two concurrent applies can't double-
+    // spend the last available slot of a capped promo.
+    let promotionId: string | null = null;
+    let discountAed = 0;
+    if (input.promoCode) {
+      const promo = await tx.promotion.findFirst({
+        where: { code: input.promoCode.toUpperCase(), OR: [{ vendorId }, { vendorId: null }] },
+      });
+      if (!promo) {
+        throw new HttpError(404, 'Promo code not recognised', { code: 'promo_not_found' });
+      }
+      // Customer's car type — used by promos restricted to a specific body.
+      const customer = await tx.user.findUnique({
+        where: { id: customerId },
+        select: { carType: true },
+      });
+      const [redemptionsTotal, redemptionsByCustomer] = await Promise.all([
+        tx.promotionRedemption.count({ where: { promotionId: promo.id } }),
+        tx.promotionRedemption.count({
+          where: { promotionId: promo.id, customerId },
+        }),
+      ]);
+      const ev = evaluatePromo({
+        promo: {
+          id: promo.id,
+          vendorId: promo.vendorId,
+          type: promo.type as 'percent' | 'fixed' | 'bundle',
+          value: promo.value,
+          applicableServiceIds: promo.applicableServiceIds,
+          applicableCarTypes: promo.applicableCarTypes as ('sedan' | 'hatchback' | 'suv' | 'pickup' | 'van' | 'coupe' | 'other')[],
+          minSpendAed: promo.minSpendAed,
+          startsAt: promo.startsAt,
+          endsAt: promo.endsAt,
+          usageLimit: promo.usageLimit,
+          perCustomerLimit: promo.perCustomerLimit,
+          status: promo.status as 'active' | 'scheduled' | 'paused' | 'expired' | 'archived',
+        },
+        vendorId,
+        serviceId: service.id,
+        customerCarType: (customer?.carType as 'sedan' | 'hatchback' | 'suv' | 'pickup' | 'van' | 'coupe' | 'other' | null) ?? null,
+        baseTotalAed: grossTotal,
+        redemptionsTotal,
+        redemptionsByCustomer,
+      });
+      if (!ev.ok) {
+        throw new HttpError(409, `Promo can't be applied: ${ev.reason.replace(/_/g, ' ')}`, {
+          code: `promo_${ev.reason}`,
+        });
+      }
+      promotionId = ev.promotionId;
+      discountAed = ev.discountAed;
+    }
+
+    const finalTotal = grossTotal - discountAed;
+    const booking = await tx.booking.create({
       data: {
         customerId,
         vendorId,
@@ -92,15 +173,33 @@ export async function createBooking(input: CreateBookingInput): Promise<BookingD
         serviceId: service.id,
         slotStart,
         slotEnd,
-        totalAed: service.priceAed,
+        totalAed: finalTotal,
+        vatAed,
+        promotionId,
+        discountAed,
         status: 'pending_payment',
       },
       include: {
-        vendor: { select: { id: true, brandName: true, city: true, emirate: true } },
+        vendor: { select: { id: true, brandName: true, city: true, emirate: true, logoUrl: true } },
         service: { select: { id: true, name: true, durationMin: true, priceAed: true } },
         bay: { select: { id: true, name: true } },
+        promotion: { select: { code: true } },
       },
     });
+    // Record the redemption now — the per-customer + global counts above
+    // already locked the right number under the transaction, so this is
+    // safe to insert here.
+    if (promotionId && discountAed > 0) {
+      await tx.promotionRedemption.create({
+        data: {
+          promotionId,
+          bookingId: booking.id,
+          customerId,
+          amountOffAed: discountAed,
+        },
+      });
+    }
+    return booking;
   });
 
   logger.info(
@@ -117,9 +216,10 @@ export async function listMyBookings(customerId: string): Promise<BookingDto[]> 
     orderBy: { slotStart: 'desc' },
     take: 50,
     include: {
-      vendor: { select: { id: true, brandName: true, city: true, emirate: true } },
+      vendor: { select: { id: true, brandName: true, city: true, emirate: true, logoUrl: true } },
       service: { select: { id: true, name: true, durationMin: true, priceAed: true } },
       bay: { select: { id: true, name: true } },
+      promotion: { select: { code: true } },
     },
   });
   return rows.map(toDto);
@@ -135,6 +235,7 @@ function toDto(b: any): BookingDto {
       brandName: b.vendor.brandName,
       city: b.vendor.city,
       emirate: String(b.vendor.emirate),
+      logoUrl: b.vendor.logoUrl ?? null,
     },
     service: {
       id: b.service.id,
@@ -146,6 +247,10 @@ function toDto(b: any): BookingDto {
     slotStart: b.slotStart.toISOString(),
     slotEnd: b.slotEnd.toISOString(),
     totalAed: b.totalAed,
+    vatAed: b.vatAed,
+    discountAed: b.discountAed ?? 0,
+    promoCode: b.promotion?.code ?? null,
+    invoiceNumber: b.invoiceNumber,
     createdAt: b.createdAt.toISOString(),
   };
 }

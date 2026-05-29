@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Find My Bay</string>
+    <!-- app_name is set per build type in build.gradle.kts (FMB Dev / Find My Bay) -->
     <string name="tagline">Book a free wash bay in seconds — across the UAE</string>
 
     <!-- Auth -->

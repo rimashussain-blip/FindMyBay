@@ -13,6 +13,7 @@ import {
   type UpdatePlatformVendorBody,
 } from '../api/platform';
 import type { DayHours, DayOfWeek, Emirate, VendorStatus, WeeklyHours } from '../api/admin';
+import LogoUpload from '../components/LogoUpload';
 
 const EMIRATES: { value: Emirate; label: string }[] = [
   { value: 'Dubai', label: 'Dubai' },
@@ -385,16 +386,13 @@ function ReadOnlyView({ v }: { v: PlatformVendorDetail }) {
         <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-3">
           <Field label="Brand name">{v.brandName}</Field>
           <Field label="Trade license">{v.tradeLicenseNo ?? '—'}</Field>
-          <Field label="Logo URL">
+          <Field label="Logo">
             {v.logoUrl ? (
-              <a
-                href={v.logoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="text-primary-deep hover:underline"
-              >
-                {truncate(v.logoUrl, 40)}
-              </a>
+              <img
+                src={v.logoUrl}
+                alt={`${v.brandName} logo`}
+                className="h-16 w-16 rounded-xl border border-mint-edge bg-white object-cover"
+              />
             ) : (
               '—'
             )}
@@ -480,12 +478,10 @@ function EditForm({
             onChange={(e) => update({ tradeLicenseNo: e.target.value })}
           />
         </EditField>
-        <EditField label="Logo URL">
-          <input
-            className="input"
+        <EditField label="Logo">
+          <LogoUpload
             value={form.logoUrl}
-            placeholder="https://…/logo.png"
-            onChange={(e) => update({ logoUrl: e.target.value })}
+            onChange={(next) => update({ logoUrl: next })}
           />
         </EditField>
       </section>

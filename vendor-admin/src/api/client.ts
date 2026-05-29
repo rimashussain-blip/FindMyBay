@@ -1,11 +1,14 @@
-// Axios instance with auth header injection. Talks to the dev proxy at /api
-// (Vite forwards to http://localhost:3000) so we don't have to deal with CORS.
+// Axios instance with auth header injection.
+// In dev: hits Vite's /api proxy which forwards to http://localhost:3000.
+// In prod: VITE_API_BASE_URL points straight at the deployed backend FQDN.
 
 import axios from 'axios';
 import { useAuth } from '../store/auth';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || '/api';
+
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
   timeout: 15_000,
 });

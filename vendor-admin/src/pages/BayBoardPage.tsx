@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createBay, getMe, setBayStatus, type AdminBay, type BayType } from '../api/admin';
 import { getRealtimeSocket, type BayUpdate } from '../api/realtime';
@@ -125,12 +126,21 @@ export default function BayBoardPage() {
         )}
       </div>
 
-      {/* Walk-in placeholder */}
+      {/* Walk-in moved to its own page (left sidebar). Pointer here for
+          discoverability. */}
       <div className="card mt-2 border-dashed bg-mint">
-        <div className="label-eyebrow">Walk-in entry</div>
-        <p className="mt-1 text-sm text-ink-soft">
-          Coming soon — record a walk-in customer directly without a booking.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <div className="label-eyebrow">Walk-in entry</div>
+            <p className="mt-1 text-sm text-ink-soft">
+              Use the <strong>Walk-in</strong> tab in the sidebar — pick an open slot from
+              today's calendar and record the customer in one tap.
+            </p>
+          </div>
+          <Link to="/walk-in" className="btn-primary whitespace-nowrap">
+            Open walk-in →
+          </Link>
+        </div>
       </div>
     </div>
   );

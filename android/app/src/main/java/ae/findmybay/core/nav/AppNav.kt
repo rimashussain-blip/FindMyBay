@@ -28,18 +28,26 @@ import ae.findmybay.feature.bookings.MyBookingsScreen
 import ae.findmybay.feature.bookings.RateBookingScreen
 import ae.findmybay.feature.bookings.ShowQrScreen
 import ae.findmybay.feature.home.NearbyMapScreen
+import ae.findmybay.feature.onboarding.OnboardingScreen
 import ae.findmybay.feature.payment.ReviewPayScreen
 import ae.findmybay.feature.profile.ProfileScreen
+import ae.findmybay.feature.splash.SplashScreen
 import ae.findmybay.feature.stub.LoyaltyScreen
 import ae.findmybay.feature.vendor.VendorDetailScreen
 
 object Routes {
+    const val SPLASH = "splash"
     const val AUTH_GRAPH = "auth"
     const val PHONE = "phone"
     const val OTP_VERIFY = "otp/{phone}"
+    const val ONBOARDING = "onboarding"
     const val NEARBY = "nearby"
     const val VENDOR_DETAIL = "vendor/{vendorId}"
-    const val SLOT_PICKER = "vendor/{vendorId}/slot-picker"
+    // serviceId is optional — when the customer picks "Deep Clean" on the
+    // vendor detail screen, we forward it so the Pick-a-time screen opens
+    // pre-selected on the same service. Falls back to the vendor's first
+    // service when absent (e.g. coming from a deep link).
+    const val SLOT_PICKER = "vendor/{vendorId}/slot-picker?serviceId={serviceId}"
     const val REVIEW_PAY = "booking/{bookingId}/pay"
     const val BOOKING_CONFIRMED = "booking/{bookingId}/confirmed"
     const val LEAVE_NOW = "alert/leave-now/{vendorName}/{etaMin}/{slotTime}"
@@ -51,7 +59,10 @@ object Routes {
 
     fun otpVerify(phone: String) = "otp/$phone"
     fun vendorDetail(vendorId: String) = "vendor/$vendorId"
-    fun slotPicker(vendorId: String) = "vendor/$vendorId/slot-picker"
+    fun slotPicker(vendorId: String, serviceId: String? = null): String {
+        val base = "vendor/$vendorId/slot-picker"
+        return if (serviceId.isNullOrBlank()) base else "$base?serviceId=$serviceId"
+    }
     fun reviewPay(bookingId: String) = "booking/$bookingId/pay"
     fun bookingConfirmed(bookingId: String) = "booking/$bookingId/confirmed"
     fun showQr(bookingId: String) = "bookings/$bookingId/qr"
@@ -104,7 +115,28 @@ fun AppNav(initialDeepLink: AlertDeepLink? = null) {
         },
     ) { scaffoldPadding ->
         Box(modifier = Modifier.padding(scaffoldPadding)) {
-            NavHost(navController = nav, startDestination = Routes.AUTH_GRAPH) {
+            NavHost(navController = nav, startDestination = Routes.SPLASH) {
+
+                // ── Splash — branches to login / onboarding / map ────────
+                composable(Routes.SPLASH) {
+                    SplashScreen(
+                        onNeedsLogin = {
+                            nav.navigate(Routes.AUTH_GRAPH) {
+                                popUpTo(Routes.SPLASH) { inclusive = true }
+                            }
+                        },
+                        onNeedsOnboarding = {
+                            nav.navigate(Routes.ONBOARDING) {
+                                popUpTo(Routes.SPLASH) { inclusive = true }
+                            }
+                        },
+                        onSignedIn = {
+                            nav.navigate(Routes.NEARBY) {
+                                popUpTo(Routes.SPLASH) { inclusive = true }
+                            }
+                        },
+                    )
+                }
 
                 // ── Auth flow ────────────────────────────────────────────
                 navigation(startDestination = Routes.PHONE, route = Routes.AUTH_GRAPH) {
@@ -113,6 +145,29 @@ fun AppNav(initialDeepLink: AlertDeepLink? = null) {
                         PhoneOtpScreen(
                             vm = vm,
                             onOtpSent = { phone -> nav.navigate(Routes.otpVerify(phone)) },
+                            // Google Sign-In bypasses the OTP screen. Returning
+                            // customers (profile already complete) go straight
+                            // to the map; brand-new accounts go to onboarding
+                            // first so we capture mobile + car details.
+                            onGoogleVerified = {
+                                nav.navigate(Routes.NEARBY) {
+                                    popUpTo(Routes.AUTH_GRAPH) { inclusive = true }
+                                }
+                            },
+                            onNeedsOnboarding = {
+                                nav.navigate(Routes.ONBOARDING) {
+                                    popUpTo(Routes.AUTH_GRAPH) { inclusive = true }
+                                }
+                            },
+                        )
+                    }
+                    composable(Routes.ONBOARDING) {
+                        OnboardingScreen(
+                            onComplete = {
+                                nav.navigate(Routes.NEARBY) {
+                                    popUpTo(Routes.ONBOARDING) { inclusive = true }
+                                }
+                            },
                         )
                     }
                     composable(
@@ -184,13 +239,22 @@ fun AppNav(initialDeepLink: AlertDeepLink? = null) {
                 ) {
                     VendorDetailScreen(
                         onBack = { nav.popBackStack() },
-                        onBook = { vendorId -> nav.navigate(Routes.slotPicker(vendorId)) },
+                        onBook = { vendorId, serviceId ->
+                            nav.navigate(Routes.slotPicker(vendorId, serviceId))
+                        },
                     )
                 }
 
                 composable(
                     route = Routes.SLOT_PICKER,
-                    arguments = listOf(navArgument("vendorId") { type = NavType.StringType }),
+                    arguments = listOf(
+                        navArgument("vendorId") { type = NavType.StringType },
+                        navArgument("serviceId") {
+                            type = NavType.StringType
+                            nullable = true
+                            defaultValue = null
+                        },
+                    ),
                 ) {
                     SlotPickerScreen(
                         onBack = { nav.popBackStack() },

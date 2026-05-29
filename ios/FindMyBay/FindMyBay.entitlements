@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Sign in with Apple. Apple's identity-provider entitlement.
+	  - "Default" gives us the standard scope (name + email) when the user
+	    creates the account on first launch. After that, repeat sign-ins
+	    return only the sub claim — which is what we want.
+	  - The matching capability must also be enabled on App Store Connect
+	    against bundle id ae.findmybay (release) and ae.findmybay.debug.
+	  - Without this entitlement, ASAuthorizationController.performRequests()
+	    silently fails with `ASAuthorizationError.unknown` (code -7026).
+	-->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

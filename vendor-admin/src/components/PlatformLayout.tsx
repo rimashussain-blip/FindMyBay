@@ -45,6 +45,7 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
       <nav className="flex flex-col gap-1">
         <NavItem to="/platform/vendors" label="Vendors" icon="🏪" />
         <NavItem to="/platform/vendors/new" label="Onboard vendor" icon="➕" />
+        <NavItem to="/platform/users" label="App users" icon="👥" />
         <div className="pointer-events-none mt-2 flex items-center gap-3 rounded-full px-4 py-2.5 text-sm text-ink-soft opacity-50">
           <span>📊</span> Reports
           <span className="ml-auto rounded-full bg-mint-edge px-2 py-0.5 text-[10px] font-medium">
@@ -84,6 +85,8 @@ function NavItem({ to, label, icon }: { to: string; label: string; icon: string 
   );
 }
 
+// Brand kit "M1 Marker": solid deep-teal squircle with a cream teardrop
+// and a circular cutout. Matches Android launcher + Vendor admin Layout.
 function LogoMark({ size = 40 }: { size?: number }) {
   return (
     <div
@@ -91,27 +94,17 @@ function LogoMark({ size = 40 }: { size?: number }) {
       style={{
         width: size,
         height: size,
-        background: 'linear-gradient(160deg, #2DD4BF 0%, #0F766E 100%)',
+        background: '#0F766E',
         boxShadow: '0 6px 16px rgba(15,118,110,0.3)',
       }}
     >
-      <svg width={size * 0.55} height={size * 0.55} viewBox="0 0 100 100">
+      <svg width={size * 0.62} height={size * 0.62} viewBox="0 0 100 100" fill="none">
         <path
-          d="M50 18 C50 18 28 42 28 60 C28 72 38 82 50 82 C62 82 72 72 72 60 C72 42 50 18 50 18 Z"
-          fill="#FFFFFF"
+          fillRule="evenodd"
+          clipRule="evenodd"
+          fill="#FFF7EC"
+          d="M50 14 C50 14 22 42 22 64 C22 79 34 90 50 90 C66 90 78 79 78 64 C78 42 50 14 50 14 Z M50 49 a13 13 0 1 0 0 26 a13 13 0 1 0 0 -26 Z"
         />
-        <text
-          x="50"
-          y="69"
-          textAnchor="middle"
-          fontFamily="Roboto, system-ui"
-          fontWeight="700"
-          fontSize="28"
-          fill="#0F766E"
-          letterSpacing="-1"
-        >
-          P
-        </text>
       </svg>
     </div>
   );

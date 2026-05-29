@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.FmbBlue100
 import ae.findmybay.core.theme.FmbBlue500
 import ae.findmybay.core.theme.FmbBlue700
@@ -285,21 +286,12 @@ private fun ActiveBookingCard(b: Booking, onShowQr: () -> Unit = {}, onCancel: (
                 modifier = Modifier.fillMaxWidth().padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(FmbBlue100, FmbSand),
-                                start = Offset(0f, 0f),
-                                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                            )
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("🚿", fontSize = 18.sp)
-                }
+                VendorLogo(
+                    logoUrl = b.vendor.logoUrl,
+                    brandName = b.vendor.brandName,
+                    size = 38.dp,
+                    shape = RoundedCornerShape(12.dp),
+                )
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(b.vendor.brandName, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = FmbBlue900)
@@ -376,26 +368,19 @@ private fun FutureBookingCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
+            // Standard FMB card outline — same 1.5dp primary aqua as the
+            // active card above so every booking row reads consistently.
+            .border(1.5.dp, FmbBlue500, RoundedCornerShape(18.dp))
             .clickable(enabled = canRate, onClick = onRate)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(
-                    Brush.linearGradient(
-                        colors = listOf(FmbBlue100, FmbSand),
-                        start = Offset(0f, 0f),
-                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                    )
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text("🚿", fontSize = 18.sp)
-        }
+        VendorLogo(
+            logoUrl = b.vendor.logoUrl,
+            brandName = b.vendor.brandName,
+            size = 38.dp,
+            shape = RoundedCornerShape(12.dp),
+        )
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -721,7 +706,7 @@ private fun formatHeader(iso: String): String {
         ?: return iso
     val today = java.time.LocalDate.now()
     val date = zoned.toLocalDate()
-    val time = zoned.format(DateTimeFormatter.ofPattern("HH:mm"))
+    val time = zoned.format(DateTimeFormatter.ofPattern("h:mm a"))
     return when (date) {
         today -> "Today · $time"
         today.plusDays(1) -> "Tomorrow · $time"

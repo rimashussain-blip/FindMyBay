@@ -13,6 +13,7 @@
 import { prisma } from '../config/db.js';
 import { logger } from '../lib/logger.js';
 import { getMapsClient } from '../lib/maps.js';
+import { getCachedEstimate, putCachedEstimate } from '../lib/maps-cache.js';
 import { getPushClient } from '../lib/push.js';
 
 const BUFFER_SECONDS = 5 * 60;
@@ -26,6 +27,13 @@ const LOCATION_FRESH_MS = 60 * 60 * 1000;
 // this radius. Triggers the geofence suppression — we skip Distance Matrix
 // entirely and cancel the alert (per spec §10.4 cost-control).
 const ARRIVED_RADIUS_M = 200;
+// Hard cap on Distance Matrix calls per booking (spec §10.4). Once a booking
+// has used its 12 probes, the worker stops asking Google and falls back to a
+// fixed slot−25min offset (spec §8.4 last-resort).
+const MAX_PROBES_PER_BOOKING = 12;
+// Spec §8.4 "fall back to slot_start − 25 min as a last resort" used when
+// either the cap is exceeded or Distance Matrix throws.
+const FALLBACK_LEAVE_OFFSET_MIN = 25;
 // UAE-area "current" lat/lng used when we have no recent location for the
 // customer (app never opened with permission, or last report > 60 min ago).
 // Burj Khalifa as a sane Dubai-centric fallback.
@@ -83,6 +91,15 @@ export async function processDueAlerts(now = new Date()): Promise<{ processed: n
       continue;
     }
 
+    // Walk-in bookings have no customer User, so there's no location to
+    // probe and nobody to push to. Walk-ins shouldn't have alert rows in
+    // the first place (we never schedule them in createBookingAlert), but
+    // belt-and-braces guard in case data drifts.
+    if (!b.customer) {
+      await prisma.alert.update({ where: { id: alert.id }, data: { status: 'cancelled' } });
+      continue;
+    }
+
     const origin = pickOrigin(b.customer);
 
     // Geofence suppression: if the customer is already within ARRIVED_RADIUS_M
@@ -105,8 +122,7 @@ export async function processDueAlerts(now = new Date()): Promise<{ processed: n
       }
     }
 
-    const maps = getMapsClient();
-    const estimate = await maps.estimate(origin.lat, origin.lng, b.vendor.lat, b.vendor.lng);
+    const estimate = await getEstimate(alert, b.vendor.lat, b.vendor.lng, origin);
     const leaveBy = new Date(b.slotStart.getTime() - estimate.durationSeconds * 1000 - BUFFER_SECONDS * 1000);
 
     if (leaveBy.getTime() <= now.getTime()) {
@@ -151,6 +167,9 @@ export async function fireAlertNow(bookingId: string): Promise<{ fired: boolean;
     },
   });
   if (!alert) return { fired: false, reason: 'no scheduled alert for this booking' };
+  if (!alert.booking.customer) {
+    return { fired: false, reason: 'walk-in bookings have no customer to alert' };
+  }
 
   const origin = pickOrigin(alert.booking.customer);
 
@@ -176,15 +195,62 @@ export async function fireAlertNow(bookingId: string): Promise<{ fired: boolean;
     }
   }
 
-  const maps = getMapsClient();
-  const estimate = await maps.estimate(
-    origin.lat,
-    origin.lng,
+  const estimate = await getEstimate(
+    alert,
     alert.booking.vendor.lat,
     alert.booking.vendor.lng,
+    origin,
   );
   await fireAlert(alert.id, alert.booking, estimate.durationSeconds);
   return { fired: true };
+}
+
+/**
+ * Resolve a Distance Matrix estimate for this alert tick.
+ *   1) Check the 3-min cache keyed by (origin grid 250m, dest, hour) per
+ *      spec §10.4. Hits are free.
+ *   2) Miss + under cap → call Google, count it on the alert row, cache it.
+ *   3) Miss + at cap → fall back to slot_start − 25min as a last resort
+ *      per spec §8.4.
+ *   4) Google throws → same fallback.
+ */
+async function getEstimate(
+  alert: { id: string; probeCount: number; booking: { slotStart: Date } },
+  destLat: number,
+  destLng: number,
+  origin: { lat: number; lng: number; source: 'reported' | 'fallback' },
+): Promise<{ durationSeconds: number }> {
+  const cached = getCachedEstimate(origin.lat, origin.lng, destLat, destLng);
+  if (cached) {
+    logger.debug({ alertId: alert.id }, 'maps cache hit');
+    return cached;
+  }
+
+  if (alert.probeCount >= MAX_PROBES_PER_BOOKING) {
+    const fallbackSeconds = FALLBACK_LEAVE_OFFSET_MIN * 60;
+    logger.warn(
+      { alertId: alert.id, probeCount: alert.probeCount },
+      'probe cap reached; using slot−25min fallback',
+    );
+    return { durationSeconds: fallbackSeconds };
+  }
+
+  try {
+    const maps = getMapsClient();
+    const estimate = await maps.estimate(origin.lat, origin.lng, destLat, destLng);
+    putCachedEstimate(origin.lat, origin.lng, destLat, destLng, estimate.durationSeconds);
+    await prisma.alert.update({
+      where: { id: alert.id },
+      data: { probeCount: { increment: 1 } },
+    });
+    return estimate;
+  } catch (err) {
+    logger.warn(
+      { err, alertId: alert.id },
+      'Distance Matrix call failed; using slot−25min fallback',
+    );
+    return { durationSeconds: FALLBACK_LEAVE_OFFSET_MIN * 60 };
+  }
 }
 
 /**
@@ -250,10 +316,13 @@ async function fireAlert(alertId: string, booking: any, etaSeconds: number) {
 }
 
 function formatHm(d: Date): string {
-  // UAE local (GMT+4) HH:mm.
+  // UAE local (GMT+4) 12-hour wall-clock, e.g. "9:05 AM" / "1:30 PM".
   const utcHour = d.getUTCHours();
-  const uaeHour = (utcHour + 4) % 24;
-  return `${String(uaeHour).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+  const uaeHour24 = (utcHour + 4) % 24;
+  const hour12 = uaeHour24 % 12 === 0 ? 12 : uaeHour24 % 12;
+  const period = uaeHour24 < 12 ? 'AM' : 'PM';
+  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  return `${hour12}:${minutes} ${period}`;
 }
 
 // ---------- Worker loop ----------

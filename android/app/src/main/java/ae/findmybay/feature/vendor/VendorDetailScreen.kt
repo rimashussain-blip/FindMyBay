@@ -45,6 +45,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ae.findmybay.core.components.Eyebrow
 import ae.findmybay.core.components.FmbPrimaryButton
+import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.FmbAmber500
 import ae.findmybay.core.theme.FmbBlue100
 import ae.findmybay.core.theme.FmbBlue500
@@ -63,7 +64,7 @@ import ae.findmybay.domain.model.VendorDetail
 @Composable
 fun VendorDetailScreen(
     onBack: () -> Unit,
-    onBook: (vendorId: String) -> Unit,
+    onBook: (vendorId: String, serviceId: String?) -> Unit,
     vm: VendorDetailViewModel = hiltViewModel(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
@@ -77,7 +78,10 @@ fun VendorDetailScreen(
                 Box(modifier = Modifier.fillMaxWidth().background(FmbCream).padding(16.dp)) {
                     FmbPrimaryButton(
                         text = label,
-                        onClick = { onBook(v.id) },
+                        // Forward the picked service so the Pick-a-time screen
+                        // pre-selects the same chip. Null falls back to the
+                        // vendor's first service in SlotPickerViewModel.
+                        onClick = { onBook(v.id, picked?.id) },
                         trailingIcon = {
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
@@ -147,6 +151,7 @@ private fun VendorBody(
 
 @Composable
 private fun HeroCard(v: VendorDetail, onBack: () -> Unit) {
+    val hasLogo = !v.logoUrl.isNullOrBlank()
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -196,12 +201,25 @@ private fun HeroCard(v: VendorDetail, onBack: () -> Unit) {
             Icon(Icons.Filled.FavoriteBorder, null, tint = FmbRed500, modifier = Modifier.size(16.dp))
         }
 
-        // Vendor glyph (bottom left)
-        Text(
-            "🚗",
-            fontSize = 36.sp,
-            modifier = Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 14.dp),
-        )
+        // Vendor logo (bottom left) — falls back to a 🚗 glyph if the
+        // vendor hasn't uploaded a logo yet, so the hero card never feels empty.
+        if (hasLogo) {
+            VendorLogo(
+                logoUrl = v.logoUrl,
+                brandName = v.brandName,
+                size = 64.dp,
+                shape = RoundedCornerShape(18.dp),
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 18.dp, bottom = 14.dp),
+            )
+        } else {
+            Text(
+                "🚗",
+                fontSize = 36.sp,
+                modifier = Modifier.align(Alignment.BottomStart).padding(start = 18.dp, bottom = 14.dp),
+            )
+        }
     }
 }
 
@@ -242,7 +260,8 @@ private fun LiveBayStatusCard(bays: List<Bay>) {
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
+            // Standard FMB card outline (1.5dp primary aqua).
+            .border(1.5.dp, FmbBlue500, RoundedCornerShape(18.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Column {

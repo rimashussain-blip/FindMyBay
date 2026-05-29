@@ -20,11 +20,68 @@ const schema = z.object({
   OTP_RESEND_COOLDOWN_SEC: z.coerce.number().int().nonnegative().default(30),
   OTP_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
 
+  // Email delivery for password reset + email verification.
+  //   console  — log the email body to stdout (dev / preview)
+  //   postmark — use Postmark's transactional API (POSTMARK_TOKEN required)
+  //   acs      — Azure Communication Services Email (ACS_CONNECTION_STRING required)
+  // Swap providers by adding a case in src/lib/email.ts; the call sites are
+  // abstracted.
+  EMAIL_DELIVERY: z.enum(['console', 'postmark', 'acs']).default('console'),
+  POSTMARK_TOKEN: z.string().optional().default(''),
+  // Azure Communication Services connection string for the 'acs' provider.
+  // Format: endpoint=https://<res>.communication.azure.com/;accesskey=<key>
+  ACS_CONNECTION_STRING: z.string().optional().default(''),
+  // The "From" address on all outbound mail. Must be a verified sender
+  // domain in Postmark. Falls back to a noreply@ on the configured
+  // marketing domain so dev doesn't need a separate variable.
+  EMAIL_FROM: z.string().email().default('noreply@findmybay.ae'),
+  EMAIL_FROM_NAME: z.string().default('Find My Bay'),
+  // Public URL of the vendor admin SPA — used in password-reset + email
+  // verification links. Already set via VENDOR_ADMIN_URL above; kept
+  // here as the canonical alias for email-link composition.
+  // Customer-app email links use the same domain — Android intercepts
+  // them via App Links once registered.
+
   CORS_ORIGINS: z.string().default('*'),
+
+  // Public URL of the vendor-admin SPA (used to build staff-invite accept URLs).
+  // e.g. https://admin.findmybay.ae — owner copies the resulting URL and shares
+  // it manually with the invitee until Batch D ships email delivery.
+  VENDOR_ADMIN_URL: z.string().url().optional(),
 
   // Maps & push (optional in dev; mock providers used when not set)
   GOOGLE_MAPS_API_KEY: z.string().optional().default(''),
+  // For local dev: point at a service-account JSON file on disk.
   FIREBASE_SERVICE_ACCOUNT_PATH: z.string().optional().default(''),
+  // For container deploys: the JSON content itself, injected as a secret env
+  // var. Either FIREBASE_SERVICE_ACCOUNT_PATH or FIREBASE_SERVICE_ACCOUNT_JSON
+  // can be set; if both, JSON wins.
+  FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional().default(''),
+  // Base64-encoded alternative for FIREBASE_SERVICE_ACCOUNT_JSON. Workaround
+  // for Azure CLI's argument-passing on Windows where multi-quote JSON
+  // values get mangled when set via `az containerapp secret set --secrets`.
+  // The encoded form has no special chars, so it survives any shell.
+  // If set, takes precedence over the plain-JSON env var.
+  FIREBASE_SERVICE_ACCOUNT_BASE64: z.string().optional().default(''),
+  // Google Sign-In: the **Web** OAuth client ID from your Firebase / Google
+  // Cloud project. Required when /auth/google is enabled. This is the
+  // "primary" / canonical audience — typically the auto-created Firebase web
+  // client. Other accepted audiences live in the *_IOS / *_ANDROID_* vars
+  // below, all OR'd together when verifying ID tokens.
+  GOOGLE_OAUTH_CLIENT_ID: z.string().optional().default(''),
+  // Additional audiences /auth/google should accept. When set, ID tokens
+  // whose `aud` claim matches ANY of these are valid. Lets one backend serve
+  // iOS + Android (release + debug) without per-platform handlers, and lets
+  // us roll over the primary client ID without downtime.
+  GOOGLE_OAUTH_CLIENT_ID_IOS: z.string().optional().default(''),
+  GOOGLE_OAUTH_CLIENT_ID_ANDROID: z.string().optional().default(''),
+  GOOGLE_OAUTH_CLIENT_ID_ANDROID_DEBUG: z.string().optional().default(''),
+
+  // Sign in with Apple: the iOS app's bundle id is also the OAuth `aud`
+  // claim Apple signs into its identity tokens. We accept release and
+  // debug bundles. Leaving both unset disables /auth/apple (returns 501).
+  APPLE_BUNDLE_ID: z.string().optional().default(''),
+  APPLE_BUNDLE_ID_DEBUG: z.string().optional().default(''),
 
   // Payments. `mock` returns a local hosted page that lets us click
   // succeed/fail buttons without contacting any third party — good for dev

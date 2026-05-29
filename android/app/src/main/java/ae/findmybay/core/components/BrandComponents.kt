@@ -30,57 +30,65 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ae.findmybay.core.theme.FmbAqua
 import ae.findmybay.core.theme.FmbBlue300
 import ae.findmybay.core.theme.FmbBlue700
+import ae.findmybay.core.theme.FmbCream
+import ae.findmybay.core.theme.FmbDeep
 import ae.findmybay.core.theme.FmbNeutral500
 import ae.findmybay.core.theme.primaryCtaGradient
 
 /**
- * Brand mark per design handoff §App Icon: gradient teal rounded square with
- * a white water-drop silhouette wrapping a deep-teal "P".
+ * Brand mark per brand kit "M1 Marker": solid deep-teal rounded square
+ * with a cream teardrop and a circular cutout through its centre.
+ * Matches the adaptive launcher icon in res/drawable/ic_launcher_*.
  */
 @Composable
 fun LogoMark(size: Dp = 68.dp) {
+    // Read theme tokens up front — Canvas's DrawScope can't read them.
+    val deepTeal = FmbBlue700
+    val cream = FmbCream
     Box(
         modifier = Modifier
             .size(size)
-            .clip(RoundedCornerShape(percent = 30))
-            .background(
-                Brush.linearGradient(
-                    colors = listOf(FmbBlue300, FmbBlue700),
-                    start = Offset(0f, 0f),
-                    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                )
-            ),
+            .clip(RoundedCornerShape(percent = 22))
+            .background(deepTeal),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.size(size * 0.55f)) {
-            drawDrop(this.size)
+        Canvas(modifier = Modifier.size(size * 0.62f)) {
+            drawMarker(this.size, cream = cream, deepTeal = deepTeal)
         }
-        Text(
-            text = "P",
-            color = FmbBlue700,
-            fontSize = (size.value * 0.30f).sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.padding(top = (size.value * 0.10f).dp),
-        )
     }
 }
 
-private fun DrawScope.drawDrop(canvasSize: Size) {
+/**
+ * Draws the M1 marker: a cream teardrop with a circular hole in the
+ * centre. We layer the cutout circle in the background colour on top
+ * of the drop so the result reads as a hollow shape. Coords are based
+ * on a 100x100 logical space and scaled to the actual canvas size.
+ */
+private fun DrawScope.drawMarker(canvasSize: Size, cream: Color, deepTeal: Color) {
     val w = canvasSize.width
     val h = canvasSize.height
-    val path = Path().apply {
-        val sx = w / 100f
-        val sy = h / 100f
-        moveTo(50f * sx, 18f * sy)
-        cubicTo(50f * sx, 18f * sy, 28f * sx, 42f * sy, 28f * sx, 60f * sy)
-        cubicTo(28f * sx, 72f * sy, 38f * sx, 82f * sy, 50f * sx, 82f * sy)
-        cubicTo(62f * sx, 82f * sy, 72f * sx, 72f * sy, 72f * sx, 60f * sy)
-        cubicTo(72f * sx, 42f * sy, 50f * sx, 18f * sy, 50f * sx, 18f * sy)
+    val sx = w / 100f
+    val sy = h / 100f
+
+    val drop = Path().apply {
+        moveTo(50f * sx, 14f * sy)
+        cubicTo(50f * sx, 14f * sy, 22f * sx, 42f * sy, 22f * sx, 64f * sy)
+        cubicTo(22f * sx, 79f * sy, 34f * sx, 90f * sy, 50f * sx, 90f * sy)
+        cubicTo(66f * sx, 90f * sy, 78f * sx, 79f * sy, 78f * sx, 64f * sy)
+        cubicTo(78f * sx, 42f * sy, 50f * sx, 14f * sy, 50f * sx, 14f * sy)
         close()
     }
-    drawPath(path, color = Color.White)
+    drawPath(drop, color = cream)
+    // Solid circular cutout in the deep-teal background colour. Reads
+    // as a hole through the teardrop without needing evenOdd fill math.
+    drawCircle(
+        color = deepTeal,
+        radius = 13f * sx,
+        center = Offset(50f * sx, 62f * sy),
+    )
 }
 
 /**
@@ -125,10 +133,22 @@ fun FmbPrimaryButton(
     // call. Without remember, every recomposition (e.g. on each keystroke in
     // a parent text field) re-allocates and invalidates the .background
     // modifier, which compounds badly during keyboard animations.
-    val activeBrush = remember { primaryCtaGradient() }
-    val disabledBrush = remember {
+    //
+    // Pre-resolve theme tokens *outside* the remember lambda — Compose's
+    // remember body is non-Composable, so it can't read MaterialTheme.
+    val aqua = FmbAqua
+    val deep = FmbDeep
+    val neutral = FmbNeutral500
+    val activeBrush = remember(aqua, deep) {
         Brush.linearGradient(
-            listOf(FmbNeutral500.copy(alpha = 0.6f), FmbNeutral500.copy(alpha = 0.6f)),
+            colors = listOf(aqua, deep),
+            start = Offset(0f, 0f),
+            end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
+        )
+    }
+    val disabledBrush = remember(neutral) {
+        Brush.linearGradient(
+            listOf(neutral.copy(alpha = 0.6f), neutral.copy(alpha = 0.6f)),
         )
     }
     val brush: Brush = if (disabled) disabledBrush else activeBrush

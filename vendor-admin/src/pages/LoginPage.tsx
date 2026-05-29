@@ -1,19 +1,24 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { login, register } from '../api/auth';
 import { useAuth, type UserRole } from '../store/auth';
+import { PasswordStrengthBar } from '../components/PasswordStrength';
 
 type Mode = 'login' | 'register';
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('login');
-  const [email, setEmail] = useState('polaris@findmybay.ae');
-  const [password, setPassword] = useState('fmb-demo-2026');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setSession = useAuth((s) => s.setSession);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // If a staff invite redirected here, send the user back to /accept-invite/...
+  // after sign-in so they can complete acceptance without re-pasting the URL.
+  const returnTo = searchParams.get('returnTo');
 
   async function submit() {
     setError(null);
@@ -27,15 +32,25 @@ export default function LoginPage() {
             fullName: fullName.trim() || undefined,
           });
       const role = res.user.role as UserRole;
+      const mustChange = res.user.mustChangePassword ?? false;
       setSession({
         accessToken: res.accessToken,
         refreshToken: res.refreshToken,
         userId: res.user.id,
         role,
+        mustChangePassword: mustChange,
       });
-      // Platform admins land on the vendor approval queue; vendor staff go
-      // to their bay board as before.
-      navigate(role === 'admin' ? '/platform/vendors' : '/bays', { replace: true });
+      // Staff created with a temp password must set their own first.
+      if (mustChange) {
+        navigate('/set-password', { replace: true });
+      } else if (returnTo && returnTo.startsWith('/')) {
+        // Honor ?returnTo= (staff-invite flow). Only same-origin paths.
+        navigate(returnTo, { replace: true });
+      } else {
+        // Platform admins land on the vendor approval queue; vendor staff go
+        // to their bay board as before.
+        navigate(role === 'admin' ? '/platform/vendors' : '/bays', { replace: true });
+      }
     } catch (e: unknown) {
       setError(extractError(e));
     } finally {
@@ -49,27 +64,20 @@ export default function LoginPage() {
       <div className="halo-mint pointer-events-none absolute inset-0" aria-hidden />
       <div className="relative w-full max-w-md">
         <div className="mb-8 text-center">
+          {/* Brand mark per brand kit "M1 Marker": solid deep-teal squircle
+              with a cream teardrop and a circular cutout. Matches the Android
+              launcher icon + the in-app LogoMark composable. */}
           <div
             className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl"
-            style={{ background: 'linear-gradient(160deg, #2DD4BF 0%, #0F766E 100%)' }}
+            style={{ background: '#0F766E' }}
           >
-            <svg width="32" height="32" viewBox="0 0 100 100">
+            <svg width="34" height="34" viewBox="0 0 100 100" fill="none">
               <path
-                d="M50 18 C50 18 28 42 28 60 C28 72 38 82 50 82 C62 82 72 72 72 60 C72 42 50 18 50 18 Z"
-                fill="#fff"
+                fillRule="evenodd"
+                clipRule="evenodd"
+                fill="#FFF7EC"
+                d="M50 14 C50 14 22 42 22 64 C22 79 34 90 50 90 C66 90 78 79 78 64 C78 42 50 14 50 14 Z M50 49 a13 13 0 1 0 0 26 a13 13 0 1 0 0 -26 Z"
               />
-              <text
-                x="50"
-                y="69"
-                textAnchor="middle"
-                fontFamily="Roboto"
-                fontWeight="700"
-                fontSize="28"
-                fill="#0F766E"
-                letterSpacing="-1"
-              >
-                P
-              </text>
             </svg>
           </div>
           <h1 className="text-2xl font-bold tracking-tight text-ink">
@@ -140,9 +148,22 @@ export default function LoginPage() {
                 autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
               {mode === 'register' && (
-                <p className="mt-1.5 text-xs text-ink-soft">
-                  At least 8 characters. We hash your password with bcrypt before storing.
-                </p>
+                <>
+                  <PasswordStrengthBar password={password} />
+                  <p className="mt-1.5 text-xs text-ink-soft">
+                    At least 8 characters. We hash your password with bcrypt before storing.
+                  </p>
+                </>
+              )}
+              {mode === 'login' && (
+                <div className="mt-1.5 text-right">
+                  <Link
+                    to="/forgot-password"
+                    className="text-xs text-primary-deep hover:underline"
+                  >
+                    Forgot your password?
+                  </Link>
+                </div>
               )}
             </div>
 
@@ -164,16 +185,6 @@ export default function LoginPage() {
                   : 'Create account'}
             </button>
 
-            {mode === 'login' && (
-              <div className="rounded-lg bg-mint px-3 py-2 text-[11px] text-primary-deep">
-                <strong className="font-bold">Demo accounts:</strong>{' '}
-                <code className="rounded bg-white px-1.5 py-0.5">polaris@findmybay.ae</code>
-                {' or '}
-                <code className="rounded bg-white px-1.5 py-0.5">marina@findmybay.ae</code>
-                {' · password '}
-                <code className="rounded bg-white px-1.5 py-0.5">fmb-demo-2026</code>
-              </div>
-            )}
           </div>
         </div>
 

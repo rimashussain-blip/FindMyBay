@@ -2,9 +2,14 @@
 //
 // Two providers:
 //   - "console" → logs the push to the dev console. Default. Zero setup.
-//   - "fcm"     → sends via Firebase Cloud Messaging. Requires
-//                 FIREBASE_SERVICE_ACCOUNT_PATH to point at a service account
-//                 JSON downloaded from Firebase Console.
+//   - "fcm"     → sends via Firebase Cloud Messaging. Picks up credentials
+//                 from EITHER:
+//                   FIREBASE_SERVICE_ACCOUNT_PATH (file path on disk; used
+//                     for local dev)
+//                   FIREBASE_SERVICE_ACCOUNT_JSON (JSON content as a string;
+//                     used in container deploys where we inject it as an
+//                     Azure Container Apps secret env var)
+//                 If both are set, JSON wins.
 
 import fs from 'node:fs';
 import { env } from '../config/env.js';
@@ -60,10 +65,16 @@ interface FirebaseAdmin {
   messaging: () => { send: (message: FcmMessage) => Promise<string> };
 }
 
+/**
+ * Either a file path on disk (`{ kind: 'path', value: '...' }`) or the
+ * service-account JSON content as a string (`{ kind: 'json', value: '{...}' }`).
+ */
+type Credential = { kind: 'path'; value: string } | { kind: 'json'; value: string };
+
 class FcmPushClient implements PushClient {
   private admin: FirebaseAdmin | null = null;
 
-  constructor(private readonly serviceAccountPath: string) {}
+  constructor(private readonly credential: Credential) {}
 
   private async lazyInit(): Promise<FirebaseAdmin> {
     if (this.admin) return this.admin;
@@ -72,13 +83,19 @@ class FcmPushClient implements PushClient {
       default: {
         apps: unknown[];
         initializeApp: (opts: unknown) => unknown;
-        credential: { cert: (path: string) => unknown };
+        credential: { cert: (input: string | Record<string, unknown>) => unknown };
         messaging: () => { send: (msg: FcmMessage) => Promise<string> };
       };
     };
     const admin = adminModule.default;
     if (admin.apps.length === 0) {
-      admin.initializeApp({ credential: admin.credential.cert(this.serviceAccountPath) });
+      // For path: firebase-admin reads + parses the JSON itself.
+      // For json: parse here and hand admin a credential object directly.
+      const credInput =
+        this.credential.kind === 'path'
+          ? this.credential.value
+          : (JSON.parse(this.credential.value) as Record<string, unknown>);
+      admin.initializeApp({ credential: admin.credential.cert(credInput) });
     }
     this.admin = { messaging: admin.messaging.bind(admin) };
     return this.admin;
@@ -140,16 +157,42 @@ let cached: PushClient | null = null;
 
 export function getPushClient(): PushClient {
   if (cached) return cached;
+
+  // Resolution order:
+  //   1. FIREBASE_SERVICE_ACCOUNT_BASE64 — base64-encoded JSON. Workaround
+  //      for shell quote-mangling when uploading the secret on Windows
+  //      (Azure CLI on cmd.exe truncates raw JSON at embedded "). The
+  //      base64 form has no special chars and survives any shell.
+  //   2. FIREBASE_SERVICE_ACCOUNT_JSON — raw JSON content. Works on
+  //      Linux / when uploaded via Portal / via Bicep / via PowerShell-with-
+  //      arg-arrays.
+  //   3. FIREBASE_SERVICE_ACCOUNT_PATH — file on disk. Local dev path.
+  //   4. Fall back to console-only push client.
+  const base64 = env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  const json = env.FIREBASE_SERVICE_ACCOUNT_JSON;
   const path = env.FIREBASE_SERVICE_ACCOUNT_PATH;
-  if (path && fs.existsSync(path)) {
-    logger.info({ provider: 'fcm', path }, 'Push client initialised (FCM)');
-    cached = new FcmPushClient(path);
+
+  if (base64) {
+    try {
+      const decoded = Buffer.from(base64, 'base64').toString('utf8');
+      logger.info({ provider: 'fcm', source: 'env-base64' }, 'Push client initialised (FCM)');
+      cached = new FcmPushClient({ kind: 'json', value: decoded });
+    } catch (err) {
+      logger.error({ err }, 'FIREBASE_SERVICE_ACCOUNT_BASE64 set but failed to decode; falling back');
+      cached = new ConsolePushClient();
+    }
+  } else if (json) {
+    logger.info({ provider: 'fcm', source: 'env-json' }, 'Push client initialised (FCM)');
+    cached = new FcmPushClient({ kind: 'json', value: json });
+  } else if (path && fs.existsSync(path)) {
+    logger.info({ provider: 'fcm', source: 'file', path }, 'Push client initialised (FCM)');
+    cached = new FcmPushClient({ kind: 'path', value: path });
   } else {
     logger.info(
       { provider: 'console' },
-      'Push client initialised (console — set FIREBASE_SERVICE_ACCOUNT_PATH for real FCM)',
+      'Push client initialised (console — set FIREBASE_SERVICE_ACCOUNT_BASE64 / _JSON / _PATH for real FCM)',
     );
     cached = new ConsolePushClient();
   }
-  return cached;
+  return cached!;
 }

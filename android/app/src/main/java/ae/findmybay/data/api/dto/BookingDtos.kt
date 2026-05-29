@@ -7,6 +7,8 @@ data class CreateBookingBody(
     val vendorId: String,
     val serviceId: String,
     val slotStart: String, // ISO 8601
+    /** Optional promo code typed at checkout. Backend uppercases + validates. */
+    val promoCode: String? = null,
 )
 
 @Serializable
@@ -19,6 +21,12 @@ data class BookingDto(
     val slotStart: String,
     val slotEnd: String,
     val totalAed: Int,
+    val vatAed: Int = 0,
+    /** Amount knocked off via a promo code at create time. 0 if no promo. */
+    val discountAed: Int = 0,
+    /** The promo code that was applied (so the receipt can echo it). */
+    val promoCode: String? = null,
+    val invoiceNumber: String? = null,
     val createdAt: String,
 )
 
@@ -31,6 +39,7 @@ data class BookingVendorDto(
     val brandName: String,
     val city: String,
     val emirate: String,
+    val logoUrl: String? = null,
 )
 
 @Serializable
@@ -51,7 +60,18 @@ data class BookingQrDto(
     val slotStart: String,
     val status: String,
     val vendorName: String? = null,
+    val vendorLogoUrl: String? = null,
     val bayName: String? = null,
+    /** FTA-compliant tax invoice number, null while pending payment. */
+    val invoiceNumber: String? = null,
+    val vatAed: Int = 0,
+    val totalAed: Int = 0,
+    // Customer car details — shown on the QR screen so the attendant
+    // immediately sees which car they should expect at the bay.
+    val carMake: String? = null,
+    val carType: String? = null,
+    val carColor: String? = null,
+    val carPlate: String? = null,
 )
 
 @Serializable

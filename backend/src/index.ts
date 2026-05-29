@@ -16,7 +16,13 @@ import { alertRouter } from './alert/router.js';
 import { deviceRouter } from './device/router.js';
 import { adminRouter } from './admin/router.js';
 import { platformRouter } from './admin/platform.js';
+import { promotionsRouter } from './admin/promotions.js';
+import { staffRouter, staffPublicRouter } from './admin/staff.js';
+import { financeRouter } from './admin/finance.js';
+import { inventoryRouter } from './admin/inventory.js';
+import { loyaltyRouter } from './admin/loyalty.js';
 import { bookingPayRouter, paymentRouter } from './payment/router.js';
+import { publicRouter } from './public/router.js';
 import { startAlertWorker } from './alert/service.js';
 import { initRealtime } from './realtime/server.js';
 
@@ -36,6 +42,8 @@ app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/health'
 app.get('/health', (_req, res) => res.json({ ok: true, ts: new Date().toISOString() }));
 
 // --- Routers ---
+// Public (no auth) — used by the marketing site at findmybay.ae.
+app.use('/public', publicRouter);
 app.use('/auth', authRouter);
 app.use('/vendors', vendorRouter);
 // /bookings/:id/pay is mounted before bookingRouter so its path-specific
@@ -48,7 +56,20 @@ app.use('/devices', deviceRouter);
 // Platform-admin endpoints — guarded by requireRole('admin') inside.
 // Mount BEFORE the vendor admin router so /admin/platform/* is matched first.
 app.use('/admin/platform', platformRouter);
+// Promotions live under /admin/promotions but are vendor-scoped (not platform).
+// Mount BEFORE adminRouter so its specific routes win over any /admin/* catch.
+app.use('/admin', promotionsRouter);
+// Staff management — owner-gated routes under /admin/staff/*.
+app.use('/admin', staffRouter);
+// Finance — invoices, refunds, VAT summary, finance overview.
+app.use('/admin', financeRouter);
+// Inventory — products catalog + stock movements.
+app.use('/admin', inventoryRouter);
+// Loyalty — derived tiers + per-vendor customer roster.
+app.use('/admin', loyaltyRouter);
 app.use('/admin', adminRouter);
+// Public invite accept flow (auth-only, no vendor membership required).
+app.use('/staff', staffPublicRouter);
 
 // --- 404 + error handler (must be LAST) ---
 app.use(notFound);

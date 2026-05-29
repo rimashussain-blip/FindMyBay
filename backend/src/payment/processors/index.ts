@@ -38,6 +38,29 @@ export interface CreateIntentResult {
   externalRef?: string;
 }
 
+export interface RefundIntentInput {
+  /** Our own internal Refund row id; surfaces in processor metadata. */
+  refundRef: string;
+  /** Processor's id for the original transaction (Payment.externalRef). */
+  externalRef: string;
+  /** Whole-AED amount to return. ≤ original charge. */
+  amountAed: number;
+  /** Free-text reason — some processors include this on the customer's
+   *  statement and / or the merchant's portal. */
+  reason: string;
+}
+
+export interface RefundIntentResult {
+  /** True if the processor accepted + committed the refund synchronously.
+   *  False means it's queued / pending review; the route layer should
+   *  still record the Refund row, just leave the processor ref optional. */
+  refunded: boolean;
+  /** Processor's id for the refund transaction itself, if known. */
+  externalRef?: string;
+  /** Surface back to the SPA on failure. */
+  message?: string;
+}
+
 export interface PaymentProcessor {
   /** Driver name — used to populate the `payments.processor` column. */
   readonly name: string;
@@ -53,6 +76,14 @@ export interface PaymentProcessor {
     externalRef?: string;
     failureReason?: string;
   };
+  /**
+   * Reverse a previously-succeeded payment. The route layer records its
+   * own Refund row regardless; this hook lets the processor do the actual
+   * money movement. Errors thrown here bubble to the route so the owner
+   * sees them; for half-successful cases the implementation returns
+   * `refunded: false` with a message.
+   */
+  refund(input: RefundIntentInput): Promise<RefundIntentResult>;
 }
 
 let cached: PaymentProcessor | null = null;

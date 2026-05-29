@@ -16,8 +16,20 @@ import javax.inject.Singleton
 class BookingRepository @Inject constructor(
     private val api: BookingApi,
 ) {
-    suspend fun create(vendorId: String, serviceId: String, slotStartIso: String): Booking =
-        api.create(CreateBookingBody(vendorId, serviceId, slotStartIso)).toDomain()
+    suspend fun create(
+        vendorId: String,
+        serviceId: String,
+        slotStartIso: String,
+        promoCode: String? = null,
+    ): Booking =
+        api.create(
+            CreateBookingBody(
+                vendorId = vendorId,
+                serviceId = serviceId,
+                slotStart = slotStartIso,
+                promoCode = promoCode?.trim()?.uppercase().takeIf { !it.isNullOrEmpty() },
+            ),
+        ).toDomain()
 
     suspend fun mine(): List<Booking> = api.mine().items.map { it.toDomain() }
 
@@ -28,7 +40,15 @@ class BookingRepository @Inject constructor(
             slotStart = it.slotStart,
             status = it.status,
             vendorName = it.vendorName,
+            vendorLogoUrl = it.vendorLogoUrl,
             bayName = it.bayName,
+            invoiceNumber = it.invoiceNumber,
+            vatAed = it.vatAed,
+            totalAed = it.totalAed,
+            carMake = it.carMake,
+            carType = it.carType,
+            carColor = it.carColor,
+            carPlate = it.carPlate,
         )
     }
 
@@ -67,11 +87,15 @@ private fun ae.findmybay.data.api.dto.ReviewDto.toDomain() = Review(
 private fun ae.findmybay.data.api.dto.BookingDto.toDomain() = Booking(
     id = id,
     status = status,
-    vendor = BookingVendor(vendor.id, vendor.brandName, vendor.city, vendor.emirate),
+    vendor = BookingVendor(vendor.id, vendor.brandName, vendor.city, vendor.emirate, vendor.logoUrl),
     service = BookingService(service.id, service.name, service.durationMin, service.priceAed),
     bay = BookingBay(bay.id, bay.name),
     slotStart = slotStart,
     slotEnd = slotEnd,
     totalAed = totalAed,
+    vatAed = vatAed,
+    discountAed = discountAed,
+    promoCode = promoCode,
+    invoiceNumber = invoiceNumber,
     createdAt = createdAt,
 )

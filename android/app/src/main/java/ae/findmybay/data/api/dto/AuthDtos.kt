@@ -19,6 +19,9 @@ data class OtpVerifyBody(
 )
 
 @Serializable
+data class GoogleSignInBody(val idToken: String)
+
+@Serializable
 data class AuthResponse(
     val accessToken: String,
     val refreshToken: String,
@@ -32,6 +35,13 @@ data class UserDto(
     val email: String? = null,
     val fullName: String? = null,
     val role: String = "customer",
+    // Customer car profile — null until onboarding is completed.
+    val carMake: String? = null,
+    val carType: String? = null,
+    val carColor: String? = null,
+    val carPlate: String? = null,
+    /** True once phone + carType + carPlate are all set. Drives navigation. */
+    val profileComplete: Boolean = false,
 )
 
 @Serializable
@@ -41,6 +51,11 @@ data class MeDto(
     val email: String? = null,
     val fullName: String? = null,
     val role: String = "customer",
+    val carMake: String? = null,
+    val carType: String? = null,
+    val carColor: String? = null,
+    val carPlate: String? = null,
+    val profileComplete: Boolean = false,
     val createdAt: String? = null,
 )
 
@@ -48,4 +63,18 @@ data class MeDto(
 data class UpdateMeBody(
     val fullName: String? = null,
     val email: String? = null,
+)
+
+/**
+ * Customer car-profile update body — used by the post-Google-sign-in
+ * onboarding screen. All fields optional so the client can split the form
+ * across screens (mobile + car details first, plate on a second screen).
+ */
+@Serializable
+data class UpdateProfileBody(
+    val phone: String? = null,
+    val carMake: String? = null,
+    val carType: String? = null,
+    val carColor: String? = null,
+    val carPlate: String? = null,
 )

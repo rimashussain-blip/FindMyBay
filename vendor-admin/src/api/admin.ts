@@ -25,6 +25,8 @@ export interface AdminVendor {
   emirate: Emirate;
   addressLine: string | null;
   tradeLicenseNo: string | null;
+  /** UAE Tax Registration Number — 15 digits per FTA. */
+  trnNumber: string | null;
   lat: number;
   lng: number;
   logoUrl: string | null;
@@ -50,16 +52,101 @@ export interface AdminService {
   vatInclusive: boolean;
 }
 
+export interface AdminBookingLoyalty {
+  tier: 'bronze' | 'silver' | 'gold' | 'platinum';
+  lifetimeBookings: number;
+  lifetimeSpendAed: number;
+  bookingsAtVendor?: number;
+  lastBookingAt: string | null;
+}
+
 export interface AdminBooking {
   id: string;
   status: string;
   slotStart: string;
   slotEnd: string;
   totalAed: number;
-  customer: { id: string; phone: string; fullName: string | null };
+  vatAed: number;
+  invoiceNumber: string | null;
+  // For walk-ins, customer.id is null and customer.fullName / phone come from
+  // the walkInName / walkInPhone fields captured at the desk.
+  isWalkIn?: boolean;
+  customer: {
+    id: string | null;
+    phone: string | null;
+    fullName: string | null;
+    // Loyalty tier + visit counts. Null for walk-ins (no customerId).
+    loyalty?: AdminBookingLoyalty | null;
+  };
   service: { id: string; name: string; durationMin: number; priceAed: number };
   bay: { id: string; name: string };
 }
+
+export interface CreateWalkInBody {
+  bayId: string;
+  serviceId: string;
+  walkInName?: string;
+  walkInPhone?: string;
+  /** Optional ISO datetime. Omit to start immediately. */
+  slotStart?: string;
+}
+
+export const createWalkIn = async (body: CreateWalkInBody): Promise<AdminBooking> => {
+  const { data } = await api.post('/admin/walk-in', body);
+  return data as AdminBooking;
+};
+
+// ── Availability calendar (walk-in scheduler) ─────────────────────────────
+
+export interface AvailabilityBay {
+  id: string;
+  name: string;
+  bayType: string;
+  status: 'free' | 'busy' | 'closed';
+}
+
+export interface AvailabilityService {
+  id: string;
+  name: string;
+  durationMin: number;
+  priceAed: number;
+}
+
+export interface AvailabilityBooking {
+  id: string;
+  bayId: string;
+  slotStart: string;
+  slotEnd: string;
+  status: string;
+  totalAed: number;
+  vatAed: number;
+  invoiceNumber: string | null;
+  isWalkIn: boolean;
+  customerName: string | null;
+  customerPhone: string | null;
+  carMake: string | null;
+  carType: string | null;
+  carColor: string | null;
+  carPlate: string | null;
+  serviceName: string;
+  /** 'cash' = walk-in (off-platform), 'paid'/'unpaid' = app booking */
+  paymentMethod: 'paid' | 'unpaid' | 'cash';
+}
+
+export interface AvailabilityResponse {
+  date: string;
+  openingHour: number;
+  closingHour: number;
+  intervalMin: number;
+  bays: AvailabilityBay[];
+  services: AvailabilityService[];
+  bookings: AvailabilityBooking[];
+}
+
+export const getAvailability = async (date?: string): Promise<AvailabilityResponse> => {
+  const { data } = await api.get('/admin/availability', { params: date ? { date } : {} });
+  return data as AvailabilityResponse;
+};
 
 export const getMe = async (): Promise<{ vendor: AdminVendor; role: string }> => {
   const { data } = await api.get('/admin/me');
@@ -114,7 +201,15 @@ export interface CheckinResult {
     id: string;
     status: string;
     slotStart: string;
-    customer: { id: string; phone: string; fullName: string | null };
+    customer: {
+      id: string;
+      phone: string;
+      fullName: string | null;
+      carMake: string | null;
+      carType: string | null;
+      carColor: string | null;
+      carPlate: string | null;
+    };
     service: { id: string; name: string; durationMin: number };
     bay: { id: string; name: string };
   };
@@ -159,6 +254,7 @@ export interface UpdateBrandBody {
   emirate?: Emirate;
   addressLine?: string | null;
   tradeLicenseNo?: string | null;
+  trnNumber?: string | null;
   lat?: number;
   lng?: number;
   logoUrl?: string | null;
@@ -168,4 +264,46 @@ export interface UpdateBrandBody {
 export const updateBrand = async (body: UpdateBrandBody): Promise<AdminVendor> => {
   const { data } = await api.patch('/admin/me/vendor', body);
   return data as AdminVendor;
+};
+
+// ── Dashboard analytics ──────────────────────────────────────────────────
+
+export interface DashboardSummary {
+  totalBookings: number;
+  totalRevenueAed: number;
+  totalDurationMin: number;
+  avgRevenuePerBookingAed: number;
+  avgDurationMin: number;
+  from: string;
+  to: string;
+}
+
+export interface DashboardServiceBreakdown {
+  serviceId: string;
+  name: string;
+  count: number;
+  revenueAed: number;
+  durationMinPerWash: number;
+  totalDurationMin: number;
+  avgRevenuePerWashAed: number;
+}
+
+export interface DashboardDailyPoint {
+  date: string; // YYYY-MM-DD
+  count: number;
+  revenueAed: number;
+}
+
+export interface DashboardResponse {
+  summary: DashboardSummary;
+  byService: DashboardServiceBreakdown[];
+  byDay: DashboardDailyPoint[];
+}
+
+export const getDashboard = async (params?: {
+  from?: string;
+  to?: string;
+}): Promise<DashboardResponse> => {
+  const { data } = await api.get('/admin/dashboard', { params });
+  return data as DashboardResponse;
 };

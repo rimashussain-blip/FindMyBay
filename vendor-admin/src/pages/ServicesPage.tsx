@@ -7,11 +7,13 @@ import {
   updateService,
   type AdminService,
 } from '../api/admin';
+import { RecipeModal } from '../components/RecipeModal';
 
 export default function ServicesPage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ['me'], queryFn: getMe });
   const [adding, setAdding] = useState(false);
+  const [recipeService, setRecipeService] = useState<AdminService | null>(null);
 
   const create = useMutation({
     mutationFn: createService,
@@ -75,6 +77,7 @@ export default function ServicesPage() {
                 onDelete={() => {
                   if (confirm(`Delete "${s.name}"? This can't be undone.`)) remove.mutate(s.id);
                 }}
+                onRecipe={() => setRecipeService(s)}
               />
             ))}
             {adding && (
@@ -95,6 +98,14 @@ export default function ServicesPage() {
           </tbody>
         </table>
       </div>
+
+      {recipeService && (
+        <RecipeModal
+          serviceId={recipeService.id}
+          serviceName={recipeService.name}
+          onClose={() => setRecipeService(null)}
+        />
+      )}
     </div>
   );
 }
@@ -104,11 +115,13 @@ function ServiceRow({
   isNew,
   onSave,
   onDelete,
+  onRecipe,
 }: {
   svc: AdminService;
   isNew?: boolean;
   onSave: (body: Partial<Omit<AdminService, 'id'>>) => void;
   onDelete: () => void;
+  onRecipe?: () => void;
 }) {
   const [editing, setEditing] = useState(!!isNew);
   const [name, setName] = useState(svc.name);
@@ -124,6 +137,14 @@ function ServiceRow({
         <td className="px-4 py-3 text-right font-bold text-primary-deep">AED {svc.priceAed}</td>
         <td className="px-4 py-3 text-ink-soft">{svc.vatInclusive ? 'Inc.' : 'Excl.'}</td>
         <td className="px-4 py-3 text-right">
+          {onRecipe && (
+            <button
+              className="rounded-lg border border-mint-edge bg-white px-2.5 py-1 text-xs font-semibold text-primary-deep hover:bg-mint mr-2"
+              onClick={onRecipe}
+            >
+              Recipe
+            </button>
+          )}
           <button className="btn-text mr-3" onClick={() => setEditing(true)}>
             Edit
           </button>

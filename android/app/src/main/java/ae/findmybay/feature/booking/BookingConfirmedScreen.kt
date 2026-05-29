@@ -1,7 +1,14 @@
 package ae.findmybay.feature.booking
 
+import android.app.NotificationManager
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,11 +22,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Navigation
+import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -29,22 +38,35 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ae.findmybay.core.components.FmbPrimaryButton
+import ae.findmybay.core.components.VendorLogo
 import ae.findmybay.core.theme.FmbBlue100
 import ae.findmybay.core.theme.FmbBlue300
+import ae.findmybay.core.theme.FmbBlue500
 import ae.findmybay.core.theme.FmbBlue700
 import ae.findmybay.core.theme.FmbBlue900
 import ae.findmybay.core.theme.FmbCream
@@ -109,7 +131,10 @@ private fun ConfirmedBody(b: Booking, onDone: () -> Unit) {
             modifier = Modifier.padding(horizontal = 12.dp),
         )
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(16.dp))
+        FullScreenAlertNudge()
+
+        Spacer(Modifier.height(16.dp))
         ReceiptCard(b)
 
         Spacer(Modifier.height(16.dp))
@@ -134,6 +159,95 @@ private fun ConfirmedBody(b: Booking, onDone: () -> Unit) {
         FmbPrimaryButton(text = "Done", onClick = onDone)
 
         Spacer(Modifier.height(28.dp))
+    }
+}
+
+/**
+ * Banner that nudges the customer to grant USE_FULL_SCREEN_INTENT on
+ * Android 14+ (where Google moved the permission behind a manual grant for
+ * non-alarm-clock apps). Without it, the smart-leave alert silently falls
+ * back to a heads-up notification instead of taking over the screen.
+ *
+ * Auto-hides on:
+ *   - Android <14 (the permission is auto-granted)
+ *   - When canUseFullScreenIntent() returns true
+ *
+ * The grant happens in system Settings, so we re-check on ON_RESUME after
+ * the user returns from the deep-linked settings page.
+ */
+@Composable
+private fun FullScreenAlertNudge() {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) return
+    val context = LocalContext.current
+    val nm = remember(context) {
+        context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    }
+    var granted by remember { mutableStateOf(nm.canUseFullScreenIntent()) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                granted = nm.canUseFullScreenIntent()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    if (granted) return
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(FmbBlue100)
+            // Standard FMB card outline (1.5dp primary aqua).
+            .border(1.5.dp, FmbBlue500, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Filled.NotificationsActive,
+            contentDescription = null,
+            tint = FmbBlue700,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                "Wake-the-phone alert",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = FmbBlue900,
+            )
+            Text(
+                "Let the leave-now reminder take over your screen even when locked.",
+                fontSize = 11.sp,
+                color = FmbNeutral700,
+                lineHeight = 14.sp,
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .background(FmbBlue700)
+                .clickable {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT).apply {
+                        data = Uri.parse("package:" + context.packageName)
+                    }
+                    context.startActivity(intent)
+                }
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+        ) {
+            Text(
+                "Allow",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Color.White,
+            )
+        }
     }
 }
 
@@ -178,95 +292,86 @@ private fun StackedHaloCheck() {
 
 @Composable
 private fun ReceiptCard(b: Booking) {
+    // Position of the tear-line notches measured from the top of the card.
+    // Sits just below the vendor header so the receipt reads as
+    // "stub (vendor) ┄ tear ┄ details (services & total)".
+    val notchY = 78.dp
+    val notchRadius = 11.dp
+    val cornerRadius = 20.dp
+    val shape = rememberNotchedShape(
+        notchY = notchY,
+        notchRadius = notchRadius,
+        cornerRadius = cornerRadius,
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(shape)
             .background(MaterialTheme.colorScheme.surface)
-            .border(1.dp, FmbMintEdge, RoundedCornerShape(18.dp))
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            // Standard FMB card outline per the design handoff — 1.5dp primary
+            // aqua to unify every card surface across the app.
+            .border(1.5.dp, FmbBlue500, shape)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
     ) {
         Column {
-            // Header row: thumbnail + vendor
+            // ── Stub: vendor header ─────────────────────────────────────────
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(FmbBlue100, FmbSand),
-                                start = Offset(0f, 0f),
-                                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                            )
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("🚿", fontSize = 18.sp)
-                }
-                Spacer(Modifier.width(10.dp))
+                VendorLogo(
+                    logoUrl = b.vendor.logoUrl,
+                    brandName = b.vendor.brandName,
+                    size = 40.dp,
+                    shape = RoundedCornerShape(12.dp),
+                )
+                Spacer(Modifier.width(12.dp))
                 Column {
                     Text(
                         b.vendor.brandName,
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.2).sp,
                         color = FmbBlue900,
                     )
                     Text(
                         "${b.vendor.city}, ${b.vendor.emirate}",
-                        fontSize = 10.sp,
+                        fontSize = 11.sp,
                         color = FmbNeutral700,
                     )
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            // Spacer pushes content past the notch row so the dashed tear-line
+            // visually sits between the stub and the details.
+            Spacer(Modifier.height(20.dp))
 
-            // Tear line — dashed-look hairline with cream notches at the edges.
-            // The notches sit on top of the divider via a Box overlay.
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(FmbBlue900.copy(alpha = 0.08f))
-                        .align(Alignment.Center),
-                )
-                // Left notch
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .align(Alignment.CenterStart)
-                        .clip(CircleShape)
-                        .background(FmbCream)
-                        .wrapContentSize(unbounded = true)
-                        .size(16.dp),
-                )
-                // Right notch
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .align(Alignment.CenterEnd)
-                        .clip(CircleShape)
-                        .background(FmbCream),
-                )
-            }
+            // ── Tear line — hairline of dashes matching the notch position ──
+            DashedHairline()
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(14.dp))
 
+            // ── Details ─────────────────────────────────────────────────────
             ReceiptRow("Service", b.service.name)
             ReceiptRow("Bay", b.bay.name)
             ReceiptRow("Time", formatLocalDateTime(b.slotStart))
             ReceiptRow("Duration", "${b.service.durationMin} min")
+            // FTA receipt lines — only surfaced once the booking has been
+            // assigned an invoice number (i.e. payment cleared). For walk-ins
+            // this lands on creation; for app bookings on payment success.
+            if (!b.invoiceNumber.isNullOrBlank()) {
+                ReceiptRow("Invoice", b.invoiceNumber)
+            }
+            if (b.vatAed > 0) {
+                ReceiptRow("VAT (5%)", "AED ${b.vatAed}")
+            }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(1.dp)
                     .background(FmbBlue900.copy(alpha = 0.08f)),
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -274,18 +379,121 @@ private fun ReceiptCard(b: Booking) {
             ) {
                 Text(
                     "Total",
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = FmbBlue900,
                     modifier = Modifier.weight(1f),
                 )
                 Text(
                     "AED ${b.totalAed}",
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.3).sp,
                     color = FmbBlue700,
                 )
             }
+        }
+    }
+}
+
+/**
+ * Hairline of evenly-spaced dashes — visually pairs with the side notches to
+ * read as a tear line on a receipt stub.
+ */
+@Composable
+private fun DashedHairline() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        repeat(28) {
+            Box(
+                modifier = Modifier
+                    .height(1.dp)
+                    .width(6.dp)
+                    .background(FmbBlue900.copy(alpha = 0.12f)),
+            )
+        }
+    }
+}
+
+/**
+ * Custom shape: a rounded-corner card with two semicircular notches cut into
+ * its left and right edges at [notchY] (measured from the top). Matches the
+ * "movie-ticket / receipt stub" silhouette on the Booking Confirmed screen.
+ */
+@Composable
+private fun rememberNotchedShape(
+    notchY: Dp,
+    notchRadius: Dp,
+    cornerRadius: Dp,
+) = with(LocalDensity.current) {
+    val notchYPx = notchY.toPx()
+    val notchRPx = notchRadius.toPx()
+    val cornerPx = cornerRadius.toPx()
+    remember(notchYPx, notchRPx, cornerPx) {
+        GenericShape { size, _ ->
+            val w = size.width
+            val h = size.height
+
+            // Top-left corner
+            moveTo(cornerPx, 0f)
+            // Top edge
+            lineTo(w - cornerPx, 0f)
+            // Top-right corner arc
+            arcTo(
+                rect = Rect(w - 2 * cornerPx, 0f, w, 2 * cornerPx),
+                startAngleDegrees = -90f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false,
+            )
+            // Right edge down to top of notch
+            lineTo(w, notchYPx - notchRPx)
+            // Right notch (semicircle bulging into the card)
+            arcTo(
+                rect = Rect(w - notchRPx, notchYPx - notchRPx, w + notchRPx, notchYPx + notchRPx),
+                startAngleDegrees = -90f,
+                sweepAngleDegrees = -180f,
+                forceMoveTo = false,
+            )
+            // Right edge to bottom-right corner
+            lineTo(w, h - cornerPx)
+            // Bottom-right corner arc
+            arcTo(
+                rect = Rect(w - 2 * cornerPx, h - 2 * cornerPx, w, h),
+                startAngleDegrees = 0f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false,
+            )
+            // Bottom edge
+            lineTo(cornerPx, h)
+            // Bottom-left corner arc
+            arcTo(
+                rect = Rect(0f, h - 2 * cornerPx, 2 * cornerPx, h),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false,
+            )
+            // Left edge up to bottom of notch
+            lineTo(0f, notchYPx + notchRPx)
+            // Left notch
+            arcTo(
+                rect = Rect(-notchRPx, notchYPx - notchRPx, notchRPx, notchYPx + notchRPx),
+                startAngleDegrees = 90f,
+                sweepAngleDegrees = -180f,
+                forceMoveTo = false,
+            )
+            // Left edge up to top-left corner
+            lineTo(0f, cornerPx)
+            // Top-left corner arc
+            arcTo(
+                rect = Rect(0f, 0f, 2 * cornerPx, 2 * cornerPx),
+                startAngleDegrees = 180f,
+                sweepAngleDegrees = 90f,
+                forceMoveTo = false,
+            )
+            close()
         }
     }
 }
@@ -325,7 +533,7 @@ private fun SecondaryButton(
     }
 }
 
-private val DT_FORMATTER = DateTimeFormatter.ofPattern("EEE d MMM · HH:mm")
+private val DT_FORMATTER = DateTimeFormatter.ofPattern("EEE d MMM · h:mm a")
 
 private fun formatLocalDateTime(iso: String): String =
     runCatching {

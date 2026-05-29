@@ -81,6 +81,14 @@ private val DarkColors = darkColorScheme(
     inversePrimary = Color(0xFF0F766E),
 )
 
+/**
+ * Theme entry point. Defaults to following the system dark-mode toggle so
+ * users who keep their phone in dark mode get the dark palette. The
+ * handoff is light-first (warm cream + sand + aqua) but the dark scheme
+ * is fully designed too — see DarkColors above. Callers can pass an
+ * explicit [darkTheme] flag to override for a specific surface (e.g. the
+ * deep-aqua Smart Leave Alert pins itself dark regardless of system).
+ */
 @Composable
 fun FindMyBayTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

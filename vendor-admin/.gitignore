@@ -7,3 +7,7 @@ dist-ssr
 .vscode
 .idea
 .DS_Store
+
+# TypeScript incremental build cache + Azure SWA deploy artifact zips
+tsconfig.tsbuildinfo
+*.zip

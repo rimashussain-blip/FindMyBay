@@ -1,13 +1,15 @@
 package ae.findmybay.core.theme
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 // ─────────────────────────────────────────────────────────────────────────
 // Find My Bay — signature brand gradients used across screens.
-// Names track the design-handoff swatches (Aqua / Deep / Cream / Sand /
-// Amber / Coral / Mint / Ink).
+// All gradients are theme-aware: the underlying Fmb* tokens switch with
+// MaterialTheme.colorScheme so light/dark each render correctly.
 // ─────────────────────────────────────────────────────────────────────────
 
 /**
@@ -15,6 +17,8 @@ import androidx.compose.ui.graphics.Color
  * Bright Aqua at the top-left fading into Deep teal at the bottom-right —
  * the same gradient used on the launcher icon and the welcome logo tile.
  */
+@Composable
+@ReadOnlyComposable
 fun logoGradient(): Brush = Brush.linearGradient(
     colors = listOf(FmbAquaBright, FmbDeep),
     start = Offset(0f, 0f),
@@ -24,15 +28,23 @@ fun logoGradient(): Brush = Brush.linearGradient(
 /**
  * "Leave now" hero gradient — deep aqua at the top fading to ink at the
  * bottom. Used as the full-bleed background on smart-leave alerts.
+ *
+ * Colors are intentionally hardcoded (not the theme-aware FmbDeep/FmbInk
+ * tokens) so the alert always reads as an urgent dark surface — its text
+ * is white and would disappear if the gradient flipped light in dark mode.
  */
+@Composable
+@ReadOnlyComposable
 fun heroGradient(): Brush = Brush.verticalGradient(
-    colors = listOf(FmbDeep, FmbInk),
+    colors = listOf(Color(0xFF0F766E), Color(0xFF0B3B36)),
 )
 
 /**
  * Warm sand-to-amber CTA pill ("I'm leaving now"). Reassuring weight,
  * matches the loyalty teaser gradient too.
  */
+@Composable
+@ReadOnlyComposable
 fun amberCtaGradient(): Brush = Brush.linearGradient(
     colors = listOf(FmbSand, FmbAmber),
     start = Offset(0f, 0f),
@@ -44,6 +56,8 @@ fun amberCtaGradient(): Brush = Brush.linearGradient(
  * Booking Confirmed) so the card lifts off the cream backdrop the way
  * it does on the design mockup.
  */
+@Composable
+@ReadOnlyComposable
 fun haloGradient(): Brush = Brush.radialGradient(
     colors = listOf(FmbMint.copy(alpha = 0.85f), Color.Transparent),
 )
@@ -53,6 +67,8 @@ fun haloGradient(): Brush = Brush.radialGradient(
  * Enter code instead). Reads as flat at a glance, picks up depth on closer
  * inspection — a nicer feel than a flat tint.
  */
+@Composable
+@ReadOnlyComposable
 fun primaryCtaGradient(): Brush = Brush.linearGradient(
     colors = listOf(FmbAqua, FmbDeep),
     start = Offset(0f, 0f),

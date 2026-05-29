@@ -1,0 +1,1287 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>findMy Bay — Fresh, clean, ready when you are</title>
+<meta name="description" content="findMy Bay connects you with trusted car-care studios across the UAE. Pick a bay, pick a time, drive in." />
+<!-- Apply theme before first paint to avoid a flash of the wrong palette. Reads the user's
+     manual choice from localStorage; falls back to OS prefers-color-scheme. -->
+<script>
+  (function() {
+    try {
+      var stored = localStorage.getItem('fmb-website-theme');
+      var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var theme = stored || (prefersDark ? 'dark' : 'light');
+      if (theme === 'dark') document.documentElement.classList.add('dark');
+    } catch (_) {}
+  })();
+</script>
+<style>
+  :root {
+    --primary: #14B8A6;
+    --primary-deep: #0F766E;
+    --primary-darker: #0B3B36;
+    --cream: #FFF7EC;
+    --sand: #FCE7C8;
+    --sand-deep: #F5C77E;
+    --coral: #FF8B6B;
+    --mint: #DBF5F0;
+    --mint-edge: #B7E5DD;
+    --ink: #0B3B36;
+    --ink-soft: #5C7A75;
+    --line: rgba(11,59,54,0.08);
+    /* Semantic surface tokens — overridden in .dark */
+    --surface: #FFFFFF;
+    --surface-soft: var(--cream);
+    --surface-2: #FFFFFF;
+    --accent: var(--primary-deep);
+    --nav-bg: rgba(255,247,236,0.85);
+    --shadow-strong: rgba(11,59,54,0.22);
+    --shadow-soft: rgba(11,59,54,0.12);
+  }
+  /* Dark theme — palette mirrors the standalone dark design */
+  html.dark {
+    --primary: #2DD4BF;
+    --primary-deep: #14B8A6;
+    --primary-darker: #0F766E;
+    --cream: #0E1F1D;
+    --sand: #3A2E1A;
+    --sand-deep: #F5C77E;
+    --coral: #FF8B6B;
+    --mint: #14302D;
+    --mint-edge: #1F4742;
+    --ink: #F4FBF9;
+    --ink-soft: #93B5B0;
+    --line: rgba(255,255,255,0.08);
+    --surface: #122827;
+    --surface-soft: #122827;
+    --surface-2: #0B1A19;
+    --accent: #2DD4BF;
+    --nav-bg: rgba(8,18,15,0.85);
+    --shadow-strong: rgba(0,0,0,0.6);
+    --shadow-soft: rgba(0,0,0,0.4);
+    color-scheme: dark;
+  }
+  /* Dark-mode tweaks for places that hard-code colors that don't translate */
+  html.dark .hero {
+    background:
+      radial-gradient(ellipse 80% 60% at 80% 30%, rgba(45,212,191,0.10), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 10% 90%, rgba(245,199,126,0.06), transparent 70%);
+  }
+  /* Phone preview keeps the warm app-content gradient (designed for light) */
+  html.dark .ps-map { background: linear-gradient(160deg,#DBF5F0 0%,#FFF7EC 100%); }
+  /* CTA-band radial blobs muddy on dark — drop them */
+  html.dark .cta-band::before,
+  html.dark .cta-band::after { display: none; }
+  /* Hero/showcase art panels — design's exact gradient */
+  html.dark .hero-art {
+    background: linear-gradient(160deg, var(--mint) 0%, var(--surface) 55%, #1a3835 100%);
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+  html.dark .showcase-stage {
+    background: linear-gradient(160deg, var(--mint) 0%, var(--surface) 55%, #1a3835 100%);
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.6);
+  }
+  html.dark .vendor-img { background: linear-gradient(135deg, var(--mint), var(--surface-2)); }
+  /* h1 em underline — translucent sand instead of solid */
+  html.dark h1.hero-title em::after { background: rgba(245,199,126,0.30); }
+  /* Eyebrow border more vivid on dark */
+  html.dark .eyebrow { border-color: rgba(45,212,191,0.30); }
+  /* Floating-card colored chips */
+  html.dark .floating-card { box-shadow: 0 12px 24px rgba(0,0,0,0.5); border: 1px solid var(--line); }
+  html.dark .fc-1 .fc-icon { background: rgba(45,212,191,0.20); color: var(--primary); }
+  html.dark .fc-2 .fc-icon { background: rgba(245,199,126,0.25); color: var(--sand-deep); }
+  html.dark .fc-3 .fc-icon { background: rgba(255,139,107,0.22); color: var(--coral); }
+  /* Showcase active tab — keep teal gradient but with darker readable text */
+  html.dark .showcase-tab.active {
+    background: linear-gradient(135deg, var(--primary-deep), var(--primary-darker));
+    color: #04221F;
+    box-shadow: 0 16px 32px -12px rgba(20,184,166,0.4);
+  }
+  html.dark .showcase-tab.active .showcase-tab-desc { color: rgba(4,34,31,0.75); }
+  /* Receipt dashed separator + booked-time bg need new alpha on dark */
+  html.dark .ps-receipt-row + .ps-receipt-row { border-top: 1px dashed rgba(255,255,255,0.10); }
+  html.dark .ps-time.booked { background: rgba(255,255,255,0.04); }
+  html.dark .ps-notif { background: rgba(20,40,38,0.92); color: var(--ink); box-shadow: 0 12px 24px rgba(0,0,0,0.5); }
+  /* Nav "Get the app" CTA — design uses solid aqua pill with dark text */
+  html.dark .nav-cta {
+    background: var(--primary);
+    color: #062421;
+    box-shadow: 0 6px 16px rgba(45,212,191,0.28);
+  }
+  html.dark .cta-band .btn-primary { background: var(--ink); color: #062421; }
+  html.dark .why { background: linear-gradient(180deg, var(--cream), var(--surface-2)); }
+  html.dark .how { background: var(--surface-2); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: 'Plus Jakarta Sans', -apple-system, 'SF Pro Text', system-ui, sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+  }
+  h1, h2, h3, h4 { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; letter-spacing: -0.02em; line-height: 1.1; margin: 0; }
+  p { margin: 0; }
+  a { color: inherit; text-decoration: none; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+
+  /* ─── Top bar ─── */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--nav-bg);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; padding: 16px 0; }
+  /* Wordmark logo — see brand kit. "find" in muted sage-teal at regular
+     weight; "My Bay" in deep ink at extrabold weight. No icon. */
+  .brand {
+    display: inline-flex; align-items: baseline; gap: 0;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 22px;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .brand-find {
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+  .brand-mybay {
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .brand-footer { font-size: 20px; }
+  /* Legacy round icon tile — kept in case other surfaces need it. The new
+     wordmark drops it. */
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 9px;
+    background: linear-gradient(150deg, var(--primary), var(--primary-deep));
+    display: grid; place-items: center;
+    box-shadow: 0 4px 10px rgba(15,118,110,0.25);
+  }
+  .nav-links { display: flex; gap: 32px; font-size: 14px; font-weight: 500; color: var(--ink-soft); }
+  .nav-links a:hover { color: var(--accent); }
+  .nav-cta {
+    padding: 10px 20px; border-radius: 999px;
+    background: var(--ink); color: white;
+    font-size: 13px; font-weight: 600;
+    transition: transform .15s ease;
+  }
+  .nav-cta:hover { transform: translateY(-1px); }
+
+  /* ─── Hero ─── */
+  .hero {
+    position: relative; overflow: hidden;
+    padding: 88px 0 100px;
+    background:
+      radial-gradient(ellipse 80% 60% at 80% 30%, rgba(94,234,212,0.18), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 10% 90%, rgba(245,199,126,0.18), transparent 70%);
+  }
+  .hero-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 64px; align-items: center; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px 6px 8px; border-radius: 999px;
+    background: rgba(20,184,166,0.10);
+    border: 1px solid rgba(20,184,166,0.22);
+    color: var(--accent);
+    font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+    margin-bottom: 24px;
+  }
+  .eyebrow-dot {
+    width: 18px; height: 18px; border-radius: 5px;
+    background: var(--primary); display: grid; place-items: center;
+    color: white;
+  }
+  h1.hero-title {
+    font-size: clamp(44px, 6vw, 72px); font-weight: 800;
+    letter-spacing: -0.035em; color: var(--ink);
+  }
+  h1.hero-title em { font-style: normal; color: var(--accent); position: relative; }
+  h1.hero-title em::after {
+    content: ''; position: absolute; left: 0; right: 0; bottom: 4px; height: 12px;
+    background: var(--sand); z-index: -1; border-radius: 4px;
+  }
+  .hero-sub {
+    margin-top: 22px; font-size: 18px; color: var(--ink-soft); max-width: 520px;
+  }
+  .hero-cta { margin-top: 32px; display: flex; gap: 12px; align-items: center; }
+  .btn-primary {
+    height: 56px; padding: 0 26px; border: none; border-radius: 16px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--primary-deep) 100%);
+    color: white; font-size: 15px; font-weight: 600; font-family: inherit;
+    box-shadow: 0 12px 28px rgba(15,118,110,0.28);
+    cursor: pointer; transition: transform .15s ease, box-shadow .15s ease;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 16px 32px rgba(15,118,110,0.32); }
+  .btn-ghost {
+    height: 56px; padding: 0 22px; border-radius: 16px;
+    background: var(--surface); color: var(--ink); border: 1px solid var(--line);
+    font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .hero-trust { margin-top: 28px; display: flex; gap: 28px; font-size: 13px; color: var(--ink-soft); }
+  .hero-trust strong { color: var(--ink); font-weight: 700; font-size: 22px; display: block; line-height: 1; margin-bottom: 4px; }
+
+  /* hero illustration */
+  .hero-art {
+    position: relative;
+    aspect-ratio: 1.05/1;
+    border-radius: 28px;
+    background: linear-gradient(160deg, var(--mint) 0%, var(--cream) 60%, var(--sand) 100%);
+    box-shadow: 0 30px 60px -20px rgba(11,59,54,0.20);
+    overflow: hidden;
+  }
+  .hero-art-rings { position: absolute; inset: 0; display: grid; place-items: center; }
+  .hero-art-rings::before, .hero-art-rings::after {
+    content: ''; position: absolute; border-radius: 50%; border: 1px solid var(--mint-edge);
+  }
+  .hero-art-rings::before { width: 60%; aspect-ratio: 1; }
+  .hero-art-rings::after { width: 80%; aspect-ratio: 1; opacity: 0.6; }
+  .hero-art img {
+    position: absolute; left: 50%; top: 56%;
+    transform: translate(-50%, -50%); width: 78%;
+    /* No outline in light mode — the dark-mode override applies an aqua
+       silhouette stroke for visibility on dark surfaces only. */
+  }
+  .floating-card {
+    position: absolute;
+    background: var(--surface); padding: 12px 16px; border-radius: 16px;
+    box-shadow: 0 12px 24px var(--shadow-soft);
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600;
+  }
+  .fc-1 { top: 28px; left: 24px; }
+  .fc-2 { bottom: 36px; right: 24px; }
+  .fc-3 { bottom: 28px; left: 40px; }
+  .fc-icon { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; }
+  .fc-1 .fc-icon { background: rgba(20,184,166,0.16); color: var(--accent); }
+  .fc-2 .fc-icon { background: rgba(245,199,126,0.4); color: #8a5b1a; }
+  .fc-3 .fc-icon { background: rgba(255,139,107,0.18); color: #c2462e; }
+  .fc-sub { color: var(--ink-soft); font-weight: 500; font-size: 11px; display: block; margin-top: 1px; }
+
+  /* ─── Logos strip ─── */
+  .partners { padding: 36px 0 12px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .partners-inner { display: flex; align-items: center; gap: 36px; flex-wrap: wrap; justify-content: space-between; }
+  .partners-label { font-size: 12px; color: var(--ink-soft); font-weight: 600; letter-spacing: 1.4px; text-transform: uppercase; }
+  .partner-logo { font-family: 'Plus Jakarta Sans'; font-weight: 700; font-size: 18px; color: var(--ink-soft); opacity: 0.7; letter-spacing: -0.02em; }
+  .partner-logo .accent { color: var(--accent); }
+
+  /* ─── Sections ─── */
+  section { padding: 100px 0; }
+  .section-eyebrow {
+    display: inline-block; padding: 5px 12px; border-radius: 999px;
+    background: var(--mint); color: var(--accent);
+    font-size: 12px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  h2.section-title { font-size: clamp(34px, 4.4vw, 52px); font-weight: 800; max-width: 720px; }
+  h2.section-title em { font-style: normal; color: var(--accent); }
+  .section-sub { margin-top: 16px; font-size: 17px; color: var(--ink-soft); max-width: 620px; }
+
+  /* ─── App showcase ─── */
+  .showcase {
+    margin-top: 56px;
+    display: grid; grid-template-columns: 1fr 1.05fr; gap: 64px; align-items: center;
+  }
+  .showcase-copy h3 { font-size: 32px; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 14px; }
+  .showcase-copy p { font-size: 16px; color: var(--ink-soft); margin-bottom: 28px; max-width: 460px; }
+  .showcase-tabs { display: flex; flex-direction: column; gap: 10px; }
+  .showcase-tab {
+    text-align: left; cursor: pointer;
+    padding: 16px 18px; border-radius: 16px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--ink); font-family: inherit;
+    display: flex; align-items: center; gap: 14px;
+    transition: all .25s ease;
+    position: relative; overflow: hidden;
+  }
+  .showcase-tab:hover { border-color: var(--mint-edge); }
+  .showcase-tab.active {
+    background: linear-gradient(135deg, var(--primary-deep), var(--primary-darker));
+    border-color: transparent; color: white;
+    box-shadow: 0 16px 32px -12px rgba(15,118,110,0.4);
+  }
+  .showcase-tab-num {
+    width: 32px; height: 32px; border-radius: 9px;
+    background: var(--mint); color: var(--accent);
+    display: grid; place-items: center; font-weight: 800; font-size: 13px;
+    flex-shrink: 0;
+  }
+  .showcase-tab.active .showcase-tab-num { background: rgba(255,255,255,0.16); color: white; }
+  .showcase-tab-text { flex: 1; }
+  .showcase-tab-title { font-size: 15px; font-weight: 700; margin-bottom: 2px; }
+  .showcase-tab-desc { font-size: 13px; color: var(--ink-soft); }
+  .showcase-tab.active .showcase-tab-desc { color: rgba(255,255,255,0.75); }
+  .showcase-tab-progress {
+    position: absolute; left: 0; bottom: 0; height: 2px;
+    background: white; width: 0;
+  }
+
+  .showcase-stage {
+    position: relative; aspect-ratio: 1/1.05;
+    border-radius: 32px;
+    background: linear-gradient(160deg, var(--mint) 0%, var(--cream) 55%, var(--sand) 100%);
+    box-shadow: 0 30px 60px -20px rgba(11,59,54,0.22);
+    overflow: hidden;
+    display: grid; place-items: center;
+  }
+  .showcase-stage::before, .showcase-stage::after {
+    content: ''; position: absolute; border-radius: 50%;
+    border: 1px solid var(--mint-edge); opacity: 0.6;
+  }
+  .showcase-stage::before { width: 60%; aspect-ratio: 1; }
+  .showcase-stage::after { width: 85%; aspect-ratio: 1; opacity: 0.4; }
+
+  .phone-frame {
+    position: relative; z-index: 2;
+    width: 280px; height: 580px;
+    background: #0B3B36;
+    border-radius: 44px;
+    padding: 8px;
+    box-shadow:
+      0 0 0 2px rgba(255,255,255,0.08) inset,
+      0 30px 50px -10px rgba(11,59,54,0.5),
+      0 60px 80px -20px rgba(11,59,54,0.3);
+  }
+  .phone-screen {
+    width: 100%; height: 100%;
+    border-radius: 36px;
+    background: var(--surface);
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-notch {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    width: 96px; height: 24px;
+    background: #0B3B36; border-radius: 999px;
+    z-index: 10;
+  }
+  .phone-slide {
+    position: absolute; inset: 0;
+    opacity: 0; transform: scale(0.96) translateY(8px);
+    transition: opacity .55s ease, transform .55s ease;
+    display: flex; flex-direction: column;
+    padding: 44px 18px 18px;
+    font-family: inherit;
+  }
+  .phone-slide.active { opacity: 1; transform: scale(1) translateY(0); }
+
+  /* slide-specific shells */
+  .ps-status { display: flex; justify-content: space-between; font-size: 11px; font-weight: 600; color: var(--ink); margin-bottom: 14px; padding: 0 6px; }
+
+  /* slide 1 — find a studio (map) */
+  .ps-map {
+    background: linear-gradient(160deg, #DBF5F0 0%, #FFF7EC 100%);
+    flex: 1; border-radius: 18px; position: relative; overflow: hidden;
+    border: 1px solid var(--mint-edge);
+  }
+  .ps-map-search {
+    position: absolute; top: 12px; left: 12px; right: 12px; z-index: 2;
+    background: var(--surface-2); border-radius: 12px; padding: 10px 14px;
+    font-size: 12px; color: var(--ink-soft); border: 1px solid var(--line);
+    box-shadow: 0 4px 10px rgba(11,59,54,0.08);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ps-pin {
+    position: absolute; width: 32px; height: 32px; border-radius: 50% 50% 50% 0;
+    background: var(--primary-deep); transform: rotate(-45deg);
+    display: grid; place-items: center;
+    box-shadow: 0 6px 12px rgba(15,118,110,0.4);
+  }
+  .ps-pin::before { content: ''; width: 10px; height: 10px; background: white; border-radius: 50%; transform: rotate(45deg); }
+  .ps-pin.lg { width: 42px; height: 42px; }
+  .ps-pin.lg::before { width: 14px; height: 14px; }
+  .ps-card {
+    position: absolute; left: 10px; right: 10px; bottom: 10px;
+    background: var(--surface-2); border-radius: 14px; padding: 12px;
+    border: 1px solid var(--line);
+    box-shadow: 0 8px 20px rgba(11,59,54,0.12);
+  }
+  .ps-card-row { display: flex; align-items: center; gap: 10px; }
+  .ps-thumb { width: 38px; height: 38px; border-radius: 9px; background: linear-gradient(135deg, var(--primary), var(--primary-deep)); display: grid; place-items: center; color: white; font-size: 16px; }
+  .ps-name { font-size: 13px; font-weight: 700; }
+  .ps-meta { font-size: 10px; color: var(--ink-soft); margin-top: 1px; }
+
+  /* slide 2 — slot picker */
+  .ps-h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 4px; }
+  .ps-h2 { font-size: 11px; color: var(--ink-soft); margin-bottom: 16px; }
+  .ps-days { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 14px; }
+  .ps-day { padding: 10px 0; border-radius: 12px; background: var(--surface-2); border: 1px solid var(--line); text-align: center; }
+  .ps-day.on { background: var(--primary-deep); border-color: transparent; color: white; }
+  .ps-day-d { font-size: 9px; opacity: 0.7; text-transform: uppercase; font-weight: 600; }
+  .ps-day-n { font-size: 17px; font-weight: 800; line-height: 1; margin-top: 3px; }
+  .ps-times { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .ps-time { padding: 9px 0; border-radius: 10px; background: var(--mint); border: 1px solid var(--mint-edge); text-align: center; font-size: 11px; font-weight: 600; color: var(--primary-deep); }
+  .ps-time.booked { background: rgba(11,59,54,0.04); border-color: var(--line); color: var(--ink-soft); text-decoration: line-through; }
+  .ps-time.on { background: var(--primary); border-color: transparent; color: white; }
+
+  /* slide 3 — confirmed */
+  .ps-confirmed { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 0 8px; }
+  .ps-check {
+    width: 84px; height: 84px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary), var(--primary-deep));
+    display: grid; place-items: center;
+    box-shadow: 0 12px 28px rgba(15,118,110,0.35);
+    animation: pop .6s ease;
+  }
+  @keyframes pop { 0% { transform: scale(0); } 60% { transform: scale(1.1); } 100% { transform: scale(1); } }
+  .ps-receipt { width: 100%; background: var(--cream); border-radius: 14px; padding: 14px; border: 1px solid var(--mint-edge); }
+  .ps-receipt-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 11px; }
+  .ps-receipt-row + .ps-receipt-row { border-top: 1px dashed rgba(11,59,54,0.15); }
+  .ps-receipt-label { color: var(--ink-soft); }
+  .ps-receipt-val { font-weight: 700; }
+
+  /* slide 4 — wash complete */
+  .ps-notif {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(20px);
+    border-radius: 18px; padding: 12px;
+    box-shadow: 0 12px 24px rgba(11,59,54,0.15);
+    margin-top: 50px;
+  }
+  .ps-notif-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .ps-notif-icon { width: 24px; height: 24px; border-radius: 6px; background: linear-gradient(135deg, var(--primary), var(--primary-deep)); display: grid; place-items: center; }
+  .ps-notif-app { font-size: 10px; font-weight: 700; color: var(--ink); text-transform: uppercase; letter-spacing: 0.4px; }
+  .ps-notif-time { font-size: 10px; color: var(--ink-soft); margin-left: auto; }
+  .ps-notif-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .ps-notif-body { font-size: 11px; color: var(--ink-soft); margin-bottom: 10px; line-height: 1.4; }
+  .ps-notif-car {
+    height: 70px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--mint), var(--sand));
+    display: grid; place-items: center; margin-bottom: 10px;
+    border: 1px solid var(--mint-edge);
+  }
+  .ps-notif-stats { display: flex; gap: 6px; }
+  .ps-notif-stat { flex: 1; background: rgba(20,184,166,0.08); border-radius: 8px; padding: 6px; text-align: center; }
+  .ps-notif-stat-l { font-size: 8px; font-weight: 700; color: var(--primary-deep); text-transform: uppercase; letter-spacing: 0.4px; }
+  .ps-notif-stat-v { font-size: 12px; font-weight: 800; color: var(--ink); margin-top: 1px; }
+
+  /* ─── How / Steps ─── */
+  .how { background: var(--surface-2); }
+  .how-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 56px;
+  }
+  .step-card {
+    padding: 32px; border-radius: 24px;
+    background: var(--surface-soft);
+    border: 1px solid var(--line);
+    position: relative; overflow: hidden;
+  }
+  .step-num {
+    font-size: 64px; font-weight: 800; color: var(--mint-edge);
+    line-height: 1; letter-spacing: -0.04em;
+    position: absolute; top: 22px; right: 24px; opacity: 0.55;
+  }
+  .step-tag { font-size: 12px; font-weight: 700; color: var(--accent); letter-spacing: 0.6px; text-transform: uppercase; margin-bottom: 12px; }
+  .step-title { font-size: 22px; font-weight: 700; margin-bottom: 10px; max-width: 200px; }
+  .step-desc { font-size: 14px; color: var(--ink-soft); }
+
+  /* ─── Why ─── */
+  .why { background: linear-gradient(180deg, var(--cream), var(--mint) 200%); }
+  .why-grid { display: grid; grid-template-columns: 1.05fr 1fr; gap: 80px; align-items: center; }
+  .reasons { list-style: none; padding: 0; margin: 40px 0 0; display: flex; flex-direction: column; gap: 24px; }
+  .reason { display: flex; gap: 18px; align-items: flex-start; }
+  .reason-ico {
+    flex: 0 0 56px; width: 56px; height: 56px; border-radius: 16px;
+    background: var(--surface); display: grid; place-items: center;
+    box-shadow: 0 6px 16px var(--shadow-soft);
+    border: 1px solid var(--line);
+  }
+  .reason-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .reason-desc { font-size: 14px; color: var(--ink-soft); }
+  .stats-card {
+    background: var(--surface); border-radius: 28px; padding: 36px;
+    box-shadow: 0 30px 60px -20px var(--shadow-strong);
+    border: 1px solid var(--line);
+  }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .stat-num { font-size: 42px; font-weight: 800; color: var(--accent); letter-spacing: -0.02em; line-height: 1; }
+  .stat-lab { font-size: 13px; color: var(--ink-soft); margin-top: 6px; }
+  .quote { font-size: 18px; font-weight: 500; line-height: 1.5; margin: 0; }
+  .quote-author { display: flex; align-items: center; gap: 12px; margin-top: 20px; }
+  .quote-avatar {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--sand), var(--coral));
+    display: grid; place-items: center; color: white; font-weight: 700;
+  }
+  .quote-name { font-size: 14px; font-weight: 700; }
+  .quote-role { font-size: 12px; color: var(--ink-soft); }
+
+  /* ─── Vendors / Locations ─── */
+  .vendors-list {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 48px;
+  }
+  .vendor-card {
+    padding: 22px; border-radius: 20px;
+    background: var(--surface); border: 1px solid var(--line);
+    transition: transform .15s ease;
+  }
+  .vendor-card:hover { transform: translateY(-3px); }
+  .vendor-img {
+    height: 100px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--mint), var(--cream));
+    display: grid; place-items: center; margin-bottom: 16px;
+    border: 1px solid var(--mint-edge);
+    overflow: hidden; position: relative;
+  }
+  /* Auto-generated initials tile for vendors without a real logo upload.
+     Sits inside .vendor-img on the marketing site's "favourite spots". */
+  .brand-mark-tile {
+    display: flex; align-items: center; justify-content: center;
+    height: 72px; width: 72px; border-radius: 18px;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    font-size: 24px; font-weight: 800; letter-spacing: -0.04em;
+    box-shadow: 0 6px 16px rgba(15,118,110,0.25);
+  }
+  .vendor-name { font-size: 15px; font-weight: 700; }
+  .vendor-meta { font-size: 12px; color: var(--ink-soft); margin-top: 4px; display: flex; align-items: center; gap: 8px; }
+  .vendor-rating { color: var(--ink); font-weight: 600; display: flex; align-items: center; gap: 3px; }
+
+  /* ─── CTA ─── */
+  .cta-band {
+    margin: 0 24px; border-radius: 36px;
+    background: linear-gradient(135deg, var(--primary-deep) 0%, var(--primary-darker) 100%);
+    padding: 76px 56px;
+    color: white;
+    position: relative; overflow: hidden;
+  }
+  .cta-band::before {
+    content: ''; position: absolute; right: -100px; top: -100px;
+    width: 400px; height: 400px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(245,199,126,0.25), transparent 60%);
+  }
+  .cta-band::after {
+    content: ''; position: absolute; left: -150px; bottom: -150px;
+    width: 350px; height: 350px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(94,234,212,0.20), transparent 60%);
+  }
+  .cta-inner { position: relative; z-index: 1; max-width: 720px; }
+  .cta-band h2 { font-size: clamp(32px, 4vw, 46px); font-weight: 800; }
+  .cta-band p { font-size: 17px; color: rgba(255,255,255,0.78); margin-top: 14px; max-width: 520px; }
+  .cta-row { margin-top: 32px; display: flex; gap: 14px; }
+  .cta-band .btn-primary {
+    background: #FFFFFF; color: #0F766E;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.18);
+  }
+  .cta-band .btn-ghost {
+    background: transparent; color: white; border: 1px solid rgba(255,255,255,0.30);
+  }
+
+  /* ─── Footer ─── */
+  footer { padding: 64px 0 36px; }
+  .footer-grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 48px; }
+  .footer-brand { font-size: 14px; color: var(--ink-soft); max-width: 280px; margin-top: 16px; }
+  .footer-col h4 { font-size: 13px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: var(--ink); margin-bottom: 16px; }
+  .footer-col a { display: block; padding: 5px 0; font-size: 14px; color: var(--ink-soft); }
+  .footer-col a:hover { color: var(--accent); }
+  .footer-bot { margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--line); display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-soft); }
+
+  /* ─── Nav login link ─── */
+  .nav-login {
+    font-size: 14px; font-weight: 600; color: var(--ink);
+    padding: 10px 16px; border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .nav-login:hover { border-color: var(--mint-edge); transform: translateY(-1px); }
+
+  /* ─── Floating dark/light toggle ─── */
+  .theme-toggle {
+    position: fixed; bottom: 20px; right: 20px; z-index: 60;
+    width: 44px; height: 44px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--line);
+    color: var(--ink-soft);
+    display: grid; place-items: center; cursor: pointer;
+    box-shadow: 0 12px 24px var(--shadow-soft);
+    transition: transform .15s ease, color .15s ease, background .2s ease;
+  }
+  .theme-toggle:hover { transform: scale(1.05); color: var(--accent); }
+  .theme-toggle .ico-sun { display: none; }
+  html.dark .theme-toggle .ico-moon { display: none; }
+  html.dark .theme-toggle .ico-sun { display: block; }
+
+  @media (max-width: 900px) {
+    .hero-grid, .why-grid, .showcase { grid-template-columns: 1fr; gap: 48px; }
+    .how-grid { grid-template-columns: 1fr; }
+    .vendors-list { grid-template-columns: repeat(2, 1fr); }
+    .footer-grid { grid-template-columns: 1fr 1fr; gap: 32px; }
+    .nav-links { display: none; }
+  }
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+</head>
+<body>
+
+<!-- ─── Top nav ─── -->
+<nav class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="#">
+      <span class="brand-find">find</span><span class="brand-mybay">My Bay</span>
+    </a>
+    <div class="nav-links">
+      <a href="#services">In the app</a>
+      <a href="#how">How it works</a>
+      <a href="#vendors">Locations</a>
+      <a href="#about">About</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <a class="nav-login" id="nav-login" href="https://admin.findmybay.me/login">Log in</a>
+      <a class="nav-cta" href="download.html">Get the app</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── Hero ─── -->
+<header class="hero">
+  <div class="container hero-grid">
+    <div>
+      <span class="eyebrow">
+        <span class="eyebrow-dot">
+          <svg width="11" height="11" viewBox="0 0 11 11"><path d="M2 5.5l2 2 5-5" stroke="white" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        Now serving Dubai &amp; Abu Dhabi
+      </span>
+      <h1 class="hero-title">A <em>fresh, clean</em> car shouldn't cost you the afternoon.</h1>
+      <p class="hero-sub">findMy Bay connects you with trusted car-care studios near you. Pick a bay, pick a time, drive in. We'll have a warm wash and a cold drink waiting.</p>
+
+      <div class="hero-cta">
+        <a class="btn-primary" href="#cta">
+          Find a wash near me
+          <svg width="18" height="18" viewBox="0 0 18 18"><path d="M5 9h8m0 0L9 5m4 4l-4 4" stroke="white" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="btn-ghost" href="#services">See it in action</a>
+      </div>
+
+      <div class="hero-trust">
+        <div><strong>4.9 ★</strong> Avg. rating</div>
+        <div><strong>120+</strong> Studios</div>
+        <div><strong>~22 min</strong> Average wash</div>
+      </div>
+    </div>
+
+    <div class="hero-art">
+      <div class="hero-art-rings"></div>
+      <img src="assets/car-teal.png" alt="A freshly washed car"/>
+      <div class="floating-card fc-1">
+        <div class="fc-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 8.5l3 3 7-7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div>
+          Bay reserved
+          <span class="fc-sub">10:00 · Bay 1</span>
+        </div>
+      </div>
+      <div class="floating-card fc-2">
+        <div class="fc-icon">★</div>
+        <div>
+          Loyalty +1
+          <span class="fc-sub">2 to free wash</span>
+        </div>
+      </div>
+      <div class="floating-card fc-3">
+        <div class="fc-icon">
+          <svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.6" fill="none"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
+        </div>
+        <div>
+          22 min
+          <span class="fc-sub">Quick wash done</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ─── Partners ─── -->
+<div class="container">
+  <div class="partners">
+    <div class="partners-inner">
+      <span class="partners-label">Trusted by studios across the UAE</span>
+      <span class="partner-logo"><span class="accent">●</span> Adam's Car Wash</span>
+      <span class="partner-logo">Rak<span class="accent"> Wash</span></span>
+    </div>
+  </div>
+</div>
+
+<!-- ─── App showcase ─── -->
+<section id="services">
+  <div class="container">
+    <span class="section-eyebrow">In the app</span>
+    <h2 class="section-title">From a fresh idea to a <em>fresh, clean car</em>.</h2>
+    <p class="section-sub">Tap through the moments that matter — finding a studio, locking a bay, and getting that "your car is ready" ping. No queue, no guesswork.</p>
+
+    <div class="showcase">
+      <div class="showcase-copy">
+        <div class="showcase-tabs" id="showcase-tabs">
+          <button class="showcase-tab active" data-i="0">
+            <span class="showcase-tab-num">01</span>
+            <span class="showcase-tab-text">
+              <span class="showcase-tab-title">Find a studio nearby</span>
+              <span class="showcase-tab-desc">Map of vetted partners, sorted by what's open.</span>
+            </span>
+            <span class="showcase-tab-progress"></span>
+          </button>
+          <button class="showcase-tab" data-i="1">
+            <span class="showcase-tab-num">02</span>
+            <span class="showcase-tab-text">
+              <span class="showcase-tab-title">Reserve a bay</span>
+              <span class="showcase-tab-desc">Pick a day, pick a time. The bay is yours.</span>
+            </span>
+            <span class="showcase-tab-progress"></span>
+          </button>
+          <button class="showcase-tab" data-i="2">
+            <span class="showcase-tab-num">03</span>
+            <span class="showcase-tab-text">
+              <span class="showcase-tab-title">Booking confirmed</span>
+              <span class="showcase-tab-desc">Receipt, directions, and add-to-calendar in one tap.</span>
+            </span>
+            <span class="showcase-tab-progress"></span>
+          </button>
+          <button class="showcase-tab" data-i="3">
+            <span class="showcase-tab-num">04</span>
+            <span class="showcase-tab-text">
+              <span class="showcase-tab-title">Your car is ready</span>
+              <span class="showcase-tab-desc">A friendly ping when the wash is done.</span>
+            </span>
+            <span class="showcase-tab-progress"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="showcase-stage">
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <div class="phone-notch"></div>
+
+            <!-- Slide 1: Map -->
+            <div class="phone-slide active" data-i="0">
+              <div class="ps-status"><span>9:41</span><span>● ●●</span></div>
+              <div class="ps-map">
+                <div class="ps-map-search">
+                  <svg width="12" height="12" viewBox="0 0 12 12"><circle cx="5" cy="5" r="3.5" stroke="#5C7A75" stroke-width="1.4" fill="none"/><path d="M8 8l3 3" stroke="#5C7A75" stroke-width="1.4" stroke-linecap="round"/></svg>
+                  Search studios…
+                </div>
+                <div class="ps-pin" style="top: 90px; left: 60px;"></div>
+                <div class="ps-pin lg" style="top: 150px; left: 110px;"></div>
+                <div class="ps-pin" style="top: 200px; right: 50px;"></div>
+                <div class="ps-pin" style="top: 280px; left: 80px;"></div>
+                <div class="ps-card">
+                  <div class="ps-card-row">
+                    <div class="ps-thumb">🚿</div>
+                    <div style="flex:1">
+                      <div class="ps-name">Adam's Car Wash</div>
+                      <div class="ps-meta">4.9 ★ · 0.8 km · 3 free bays</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide 2: Slot picker -->
+            <div class="phone-slide" data-i="1">
+              <div class="ps-status"><span>9:41</span><span>● ●●</span></div>
+              <div class="ps-h1">Pick a time</div>
+              <div class="ps-h2">Adam's Car Wash · Standard Wash</div>
+              <div class="ps-days">
+                <div class="ps-day"><div class="ps-day-d">Mon</div><div class="ps-day-n">28</div></div>
+                <div class="ps-day on"><div class="ps-day-d">Tue</div><div class="ps-day-n">29</div></div>
+                <div class="ps-day"><div class="ps-day-d">Wed</div><div class="ps-day-n">30</div></div>
+                <div class="ps-day"><div class="ps-day-d">Thu</div><div class="ps-day-n">01</div></div>
+              </div>
+              <div class="ps-times">
+                <div class="ps-time">09:00</div>
+                <div class="ps-time">09:30</div>
+                <div class="ps-time on">10:00</div>
+                <div class="ps-time booked">10:30</div>
+                <div class="ps-time">11:00</div>
+                <div class="ps-time">11:30</div>
+                <div class="ps-time booked">12:00</div>
+                <div class="ps-time">12:30</div>
+                <div class="ps-time">13:00</div>
+              </div>
+              <div style="flex:1"></div>
+              <button style="height:46px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--primary),var(--primary-deep));color:white;font-size:13px;font-weight:700;font-family:inherit;margin-top:14px;">Reserve bay · 10:00</button>
+            </div>
+
+            <!-- Slide 3: Confirmed -->
+            <div class="phone-slide" data-i="2">
+              <div class="ps-status"><span>9:41</span><span>● ●●</span></div>
+              <div class="ps-confirmed">
+                <div class="ps-check">
+                  <svg width="40" height="40" viewBox="0 0 40 40"><path d="M10 20l6 6 14-14" stroke="white" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </div>
+                <div>
+                  <div class="ps-h1" style="text-align:center;">You're booked!</div>
+                  <div class="ps-h2" style="text-align:center;">Bay 1 reserved · Tue 29 · 10:00</div>
+                </div>
+                <div class="ps-receipt">
+                  <div class="ps-receipt-row"><span class="ps-receipt-label">Studio</span><span class="ps-receipt-val">Adam's Car Wash</span></div>
+                  <div class="ps-receipt-row"><span class="ps-receipt-label">Service</span><span class="ps-receipt-val">Standard Wash</span></div>
+                  <div class="ps-receipt-row"><span class="ps-receipt-label">Total</span><span class="ps-receipt-val">AED 65</span></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Slide 4: Wash complete -->
+            <div class="phone-slide" data-i="3" style="background:linear-gradient(160deg,#0F766E 0%,#0B3B36 100%);">
+              <div class="ps-status" style="color:white;"><span>9:41</span><span>● ●●</span></div>
+              <div style="text-align:center;color:white;margin-top:10px;">
+                <div style="font-size:11px;opacity:0.8;">Tuesday · 10:24</div>
+                <div style="font-size:54px;font-weight:200;letter-spacing:-2px;line-height:1;">10:24</div>
+              </div>
+              <div class="ps-notif">
+                <div class="ps-notif-head">
+                  <div class="ps-notif-icon">
+                    <svg width="14" height="14" viewBox="0 0 14 14"><path d="M7 1.5C4 5.5 3 8 3 9.5a4 4 0 008 0c0-1.5-1-4-4-8z" fill="white"/></svg>
+                  </div>
+                  <div class="ps-notif-app">findMy Bay</div>
+                  <div class="ps-notif-time">now</div>
+                </div>
+                <div class="ps-notif-title">Your car is fresh &amp; ready ✨</div>
+                <div class="ps-notif-body">Adam's Car Wash has finished your Standard Wash. Pick up whenever you're ready.</div>
+                <div class="ps-notif-car">
+                  <img src="assets/car-teal.png" alt="" style="height:60px;width:auto;"/>
+                </div>
+                <div class="ps-notif-stats">
+                  <div class="ps-notif-stat"><div class="ps-notif-stat-l">Time</div><div class="ps-notif-stat-v">22 min</div></div>
+                  <div class="ps-notif-stat"><div class="ps-notif-stat-l">Charged</div><div class="ps-notif-stat-v">AED 65</div></div>
+                  <div class="ps-notif-stat"><div class="ps-notif-stat-l">Loyalty</div><div class="ps-notif-stat-v">+1 ★</div></div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── How it works ─── -->
+<section class="how" id="how">
+  <div class="container">
+    <span class="section-eyebrow">How it goes</span>
+    <h2 class="section-title">Three steps. Then you're <em>back to your day</em>.</h2>
+    <div class="how-grid">
+      <div class="step-card">
+        <span class="step-num">01</span>
+        <div class="step-tag">Find</div>
+        <h3 class="step-title">Pick a studio nearby.</h3>
+        <p class="step-desc">Hand-picked car-care studios across the city, sorted by what's open and free right now.</p>
+      </div>
+      <div class="step-card">
+        <span class="step-num">02</span>
+        <div class="step-tag">Reserve</div>
+        <h3 class="step-title">Lock a bay for the time you want.</h3>
+        <p class="step-desc">Choose your wash and a slot. We hold the bay so you never queue when you arrive.</p>
+      </div>
+      <div class="step-card">
+        <span class="step-num">03</span>
+        <div class="step-tag">Relax</div>
+        <h3 class="step-title">Drive in. Hand over the keys.</h3>
+        <p class="step-desc">Coffee, lounge, or a quick errand — we'll ping you the moment your car is fresh.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Why findMy Bay ─── -->
+<section class="why" id="about">
+  <div class="container why-grid">
+    <div>
+      <span class="section-eyebrow">Why findMy Bay</span>
+      <h2 class="section-title">Built around <em>your time</em>, not the queue.</h2>
+      <p class="section-sub">We started findMy Bay because waiting for a wash on a 38° afternoon shouldn't be normal. Every studio on the platform is vetted, every bay is reserved in advance, and every receipt earns loyalty.</p>
+
+      <ul class="reasons">
+        <li class="reason">
+          <div class="reason-ico">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="8.5" stroke="#0F766E" stroke-width="1.6"/><path d="M11 6v5l3 2" stroke="#0F766E" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <div class="reason-title">No more waiting around</div>
+            <div class="reason-desc">Reserve a bay before you arrive — the studio is ready when you are.</div>
+          </div>
+        </li>
+        <li class="reason">
+          <div class="reason-ico">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M11 2 L13.5 8 L20 8.5 L15 13 L16.5 19.5 L11 16 L5.5 19.5 L7 13 L2 8.5 L8.5 8 Z" fill="#F5C77E" stroke="#0F766E" stroke-width="1.4" stroke-linejoin="round"/></svg>
+          </div>
+          <div>
+            <div class="reason-title">Vetted, rated studios</div>
+            <div class="reason-desc">We visit, audit, and rate every partner. Below 4.5★ means they're off the platform.</div>
+          </div>
+        </li>
+        <li class="reason">
+          <div class="reason-ico">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><rect x="3" y="6" width="16" height="11" rx="2" stroke="#0F766E" stroke-width="1.6"/><path d="M3 10h16" stroke="#0F766E" stroke-width="1.6"/></svg>
+          </div>
+          <div>
+            <div class="reason-title">One price, no surprises</div>
+            <div class="reason-desc">What you see at booking is what you pay. VAT included, refunds always honoured.</div>
+          </div>
+        </li>
+        <li class="reason">
+          <div class="reason-ico">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M5 8 L11 3 L17 8 V18 a 1 1 0 0 1 -1 1 H6 a 1 1 0 0 1 -1 -1 Z" stroke="#0F766E" stroke-width="1.6" fill="none"/><path d="M9 19v-6h4v6" stroke="#0F766E" stroke-width="1.6"/></svg>
+          </div>
+          <div>
+            <div class="reason-title">Loyalty that adds up</div>
+            <div class="reason-desc">Earn a star with every wash. Five stars unlocks a free Standard Wash at any partner.</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="stats-card">
+      <p class="quote">"We used to lose Saturday mornings to the wash queue. Now my car gets cleaner, more often, and I don't lose my morning. It's a small thing, but it's the kind of small thing you tell your friends about."</p>
+      <div class="quote-author">
+        <div class="quote-avatar">RA</div>
+        <div>
+          <div class="quote-name">Rashid A.</div>
+          <div class="quote-role">findMy Bay member · Dubai Marina</div>
+        </div>
+      </div>
+      <div class="stats-grid">
+        <div>
+          <div class="stat-num">4.9★</div>
+          <div class="stat-lab">Average member rating</div>
+        </div>
+        <div>
+          <div class="stat-num">68k+</div>
+          <div class="stat-lab">Cars cleaned this year</div>
+        </div>
+        <div>
+          <div class="stat-num">22 min</div>
+          <div class="stat-lab">Average time at the bay</div>
+        </div>
+        <div>
+          <div class="stat-num">120+</div>
+          <div class="stat-lab">Studios across UAE</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Vendors ─── -->
+<section id="vendors">
+  <div class="container">
+    <span class="section-eyebrow">Studios near you</span>
+    <h2 class="section-title">A handful of our <em>favourite spots</em>.</h2>
+    <p class="section-sub">Every studio is independently owned, locally run, and held to the same standard of care — whether it's a five-bay garage or a single boutique detailer.</p>
+
+    <!-- Static fallback cards. JS below replaces this list with live data
+         from /public/featured-vendors (which includes real logos). If the
+         API call fails (offline / CORS / cold start), these static cards
+         remain visible so the section is never empty. -->
+    <div class="vendors-list" id="vendors-list">
+      <div class="vendor-card">
+        <div class="vendor-img">
+          <div class="brand-mark-tile" style="background-image: linear-gradient(135deg, #14B8A6, #0F766E); color: #fff;">AC</div>
+        </div>
+        <div class="vendor-name">Adam's Car Wash</div>
+        <div class="vendor-meta">
+          <span>Sharjah</span>
+          <span>·</span>
+          <span>Al Majaz 1</span>
+        </div>
+      </div>
+      <div class="vendor-card">
+        <div class="vendor-img">
+          <div class="brand-mark-tile" style="background-image: linear-gradient(135deg, #0F766E, #0B3B36); color: #fff;">RW</div>
+        </div>
+        <div class="vendor-name">Rak Wash</div>
+        <div class="vendor-meta">
+          <span>Ras Al Khaimah</span>
+          <span>·</span>
+          <span>Rak city</span>
+        </div>
+      </div>
+      <div class="vendor-card">
+        <div class="vendor-img">
+          <div class="brand-mark-tile" style="background-image: linear-gradient(135deg, #F5C77E, #c2913a); color: #3a2a08;">CC</div>
+        </div>
+        <div class="vendor-name">Clean Car Wash</div>
+        <div class="vendor-meta">
+          <span>Dubai</span>
+          <span>·</span>
+          <span>Silicon Oasis</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CTA band ─── -->
+<section style="padding: 0 0 100px;" id="cta">
+  <div class="cta-band">
+    <div class="cta-inner">
+      <h2>Ready for a fresh, clean car?</h2>
+      <p>Find a studio near you, pick a bay, and let the wash come to your day instead of the other way around.</p>
+      <div class="cta-row">
+        <a class="btn-primary" href="download.html">
+          Get findMy Bay
+          <svg width="18" height="18" viewBox="0 0 18 18"><path d="M5 9h8m0 0L9 5m4 4l-4 4" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+        <a class="btn-ghost" href="#vendors">Browse studios</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Footer ─── -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <a class="brand brand-footer" href="#">
+          <span class="brand-find">find</span><span class="brand-mybay">My Bay</span>
+        </a>
+        <p class="footer-brand">Fresh, clean cars. Reserved bays. The wash that fits your day.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Service</h4>
+        <a href="#services">Quick Exterior</a>
+        <a href="#services">Standard Wash</a>
+        <a href="#services">Showroom Detail</a>
+        <a href="#vendors">Studios</a>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <a href="#about">About us</a>
+        <a href="#">Careers</a>
+        <a href="#">Press</a>
+        <a href="#">Contact</a>
+      </div>
+      <div class="footer-col">
+        <h4>Help</h4>
+        <a href="#">Support</a>
+        <a href="#">Refunds</a>
+        <a href="#">Terms</a>
+        <a href="#">Privacy</a>
+      </div>
+    </div>
+    <div class="footer-bot">
+      <span>© 2026 findMy Bay. All rights reserved.</span>
+      <span>Made with ☕ in the UAE</span>
+    </div>
+  </div>
+</footer>
+
+<!-- Floating manual dark/light toggle, visible on every section -->
+<button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">
+  <svg class="ico-moon" width="20" height="20" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path d="M13 9.5A5.5 5.5 0 016.5 3a5.5 5.5 0 100 11A5.5 5.5 0 0013 9.5z" fill="currentColor"/>
+  </svg>
+  <svg class="ico-sun" width="20" height="20" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <circle cx="8" cy="8" r="3" fill="currentColor"/>
+    <g stroke="currentColor" stroke-width="1.4" stroke-linecap="round">
+      <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M3.4 12.6l1.1-1.1M11.5 4.5l1.1-1.1"/>
+    </g>
+  </svg>
+</button>
+
+<script>
+  // ── Theme: manual toggle + live OS-pref listener ──
+  (function() {
+    const STORAGE_KEY = 'fmb-website-theme';
+    const root = document.documentElement;
+    const btn = document.getElementById('theme-toggle');
+
+    function getStored() {
+      try { return localStorage.getItem(STORAGE_KEY); } catch (_) { return null; }
+    }
+    function setStored(v) {
+      try {
+        if (v === null) localStorage.removeItem(STORAGE_KEY);
+        else localStorage.setItem(STORAGE_KEY, v);
+      } catch (_) {}
+    }
+    function osPrefersDark() {
+      return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    }
+    function apply(theme) {
+      if (theme === 'dark') root.classList.add('dark');
+      else root.classList.remove('dark');
+    }
+
+    // Manual click flips, and stores the choice so it sticks across reloads.
+    btn.addEventListener('click', () => {
+      const next = root.classList.contains('dark') ? 'light' : 'dark';
+      setStored(next);
+      apply(next);
+    });
+
+    // Live: when the OS theme changes mid-session, follow it — but only if the
+    // user hasn't manually overridden. Manual choice always wins.
+    if (window.matchMedia) {
+      const mql = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = () => {
+        if (getStored()) return;
+        apply(mql.matches ? 'dark' : 'light');
+      };
+      if (mql.addEventListener) mql.addEventListener('change', handler);
+      else if (mql.addListener) mql.addListener(handler);
+    }
+  })();
+
+  // ── App-screen showcase animation ──
+  (function() {
+    const tabs = document.querySelectorAll('#showcase-tabs .showcase-tab');
+    const slides = document.querySelectorAll('.phone-slide');
+    let i = 0; let timer;
+    const SLIDE_MS = 4200;
+
+    function go(n) {
+      i = n;
+      tabs.forEach((t, k) => t.classList.toggle('active', k === i));
+      slides.forEach((s, k) => s.classList.toggle('active', k === i));
+      tabs.forEach((t, k) => {
+        const bar = t.querySelector('.showcase-tab-progress');
+        if (!bar) return;
+        bar.style.transition = 'none';
+        bar.style.width = '0';
+        if (k === i) {
+          requestAnimationFrame(() => {
+            bar.style.transition = `width ${SLIDE_MS}ms linear`;
+            bar.style.width = '100%';
+          });
+        }
+      });
+    }
+    function tick() { go((i + 1) % slides.length); }
+    function start() { clearInterval(timer); timer = setInterval(tick, SLIDE_MS); }
+
+    tabs.forEach(t => t.addEventListener('click', () => { go(parseInt(t.dataset.i, 10)); start(); }));
+    go(0); start();
+  })();
+</script>
+
+<!-- Featured vendors loader.
+     Fetches /public/featured-vendors from the backend and replaces the static
+     fallback cards (see #vendors-list above). If the API is unreachable or
+     returns no items, the static cards remain visible. Logos in the API
+     payload are base64 data URLs (the LogoUpload component on vendor-admin
+     downsizes to 256x256 PNG ~ 8-30 KB each), so we can embed them directly
+     into <img src>. -->
+<script>
+  (function loadFeaturedVendors() {
+    var API = 'https://fmb-backend.bravegrass-00d218a4.uaenorth.azurecontainerapps.io';
+    // Rotating brand-palette gradients for the auto-generated initials tile
+    // when a vendor hasn't uploaded a real logo yet. Each pair is the FMB
+    // light/dark shade for that hue — every vendor gets a clean branded
+    // square instead of the old generic car silhouette.
+    var BRAND_PALETTES = [
+      { from: '#14B8A6', to: '#0F766E', text: '#FFFFFF' }, // aqua → deep teal
+      { from: '#0F766E', to: '#0B3B36', text: '#FFFFFF' }, // deep teal → ink
+      { from: '#F5C77E', to: '#c2913a', text: '#3a2a08' }, // sand → amber
+      { from: '#FF8B6B', to: '#c2563b', text: '#FFFFFF' }, // coral → deep coral
+      { from: '#2DD4BF', to: '#0F766E', text: '#FFFFFF' }, // bright aqua → deep teal
+      { from: '#DBF5F0', to: '#14B8A6', text: '#0B3B36' }, // mint wash → aqua
+    ];
+    var root = document.getElementById('vendors-list');
+    if (!root) return;
+
+    // 30-second cache bucket on the query string. Same value across a
+    // half-minute window so the server cache still hits, but it rotates
+    // fast enough that vendor brand-name/logo edits land on the marketing
+    // page within ~30 s without forcing readers to hard-refresh.
+    var cb = Math.floor(Date.now() / 30000);
+    fetch(API + '/public/featured-vendors?limit=4&cb=' + cb, { credentials: 'omit' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) {
+        var items = (data && data.items) || [];
+        if (!items.length) return; // keep static fallback
+        root.innerHTML = items.map(function (v) {
+          var visual = v.logoUrl
+            ? '<img src="' + esc(v.logoUrl) + '" alt="' + esc(v.brandName) + ' logo" '
+              + 'style="height:72px;width:72px;border-radius:18px;object-fit:cover;background:#fff;'
+              + 'box-shadow:0 6px 16px rgba(15,118,110,0.18);" '
+              + 'loading="lazy" decoding="async" />'
+            : brandMark(v.brandName);
+          var rating = (typeof v.ratingAvg === 'number')
+            ? '<span class="vendor-rating">' + v.ratingAvg.toFixed(1) + ' ★</span><span>·</span>'
+            : '';
+          return ''
+            + '<div class="vendor-card">'
+            +   '<div class="vendor-img">' + visual + '</div>'
+            +   '<div class="vendor-name">' + esc(v.brandName) + '</div>'
+            +   '<div class="vendor-meta">'
+            +     rating
+            +     '<span>' + esc(v.emirate || '') + '</span>'
+            +     (v.city ? '<span>·</span><span>' + esc(v.city) + '</span>' : '')
+            +   '</div>'
+            + '</div>';
+        }).join('');
+      })
+      .catch(function (err) {
+        // Leave static fallback in place. Don't bother the user with a
+        // marketing-site error; just log it for ourselves.
+        if (window.console && console.warn) console.warn('Featured vendors load failed:', err);
+      });
+
+    /**
+     * Generate a deterministic branded square for a vendor that hasn't
+     * uploaded a logo. Same input always yields the same colour + initials
+     * so a vendor's tile doesn't shuffle between page loads.
+     */
+    function brandMark(name) {
+      var initials = computeInitials(name);
+      var palette = BRAND_PALETTES[hashCode(name) % BRAND_PALETTES.length];
+      return ''
+        + '<div style="'
+        +   'display:flex;align-items:center;justify-content:center;'
+        +   'height:72px;width:72px;border-radius:18px;'
+        +   'background-image:linear-gradient(135deg,' + palette.from + ',' + palette.to + ');'
+        +   'box-shadow:0 6px 16px rgba(15,118,110,0.25);'
+        +   'color:' + palette.text + ';'
+        +   'font-family:\'Plus Jakarta Sans\',system-ui,sans-serif;'
+        +   'font-size:24px;font-weight:800;letter-spacing:-0.04em;'
+        + '" aria-label="' + esc(name) + ' logo">'
+        +   esc(initials)
+        + '</div>';
+    }
+
+    /**
+     * "Adam's Car Wash" → "AC"; "Polaris Auto Spa" → "PA"; "Wash" → "WA".
+     * Pulls the leading char of the first two non-empty words; falls back
+     * to the first two characters of the brand name if only one word.
+     */
+    function computeInitials(name) {
+      var clean = String(name || '').replace(/[^a-zA-Z0-9 ]/g, ' ').trim();
+      if (!clean) return '?';
+      var parts = clean.split(/\s+/).filter(Boolean);
+      if (parts.length >= 2) {
+        return (parts[0][0] + parts[1][0]).toUpperCase();
+      }
+      return parts[0].slice(0, 2).toUpperCase();
+    }
+
+    /** djb2 hash → non-negative int. Stable + cheap. */
+    function hashCode(s) {
+      var h = 5381;
+      var str = String(s || '');
+      for (var i = 0; i < str.length; i++) {
+        h = ((h << 5) + h + str.charCodeAt(i)) >>> 0;
+      }
+      return h;
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

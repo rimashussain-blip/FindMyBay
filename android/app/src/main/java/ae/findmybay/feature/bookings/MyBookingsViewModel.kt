@@ -7,6 +7,7 @@ import ae.findmybay.core.realtime.RealtimeClient
 import ae.findmybay.data.repo.BookingRepository
 import ae.findmybay.domain.model.Booking
 import ae.findmybay.service.AlertSafetyNet
+import ae.findmybay.service.AlertWindow
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -95,9 +96,10 @@ class MyBookingsViewModel @Inject constructor(
                             },
                         )
                     }
-                    // Tear down the FCM-throttle safety net so we don't post a
-                    // local "leave now" notification for a booking that's been
-                    // cancelled.
+                    // Tear down both alert helpers so we don't keep a
+                    // foreground worker running or fire a local notification
+                    // for a booking that's been cancelled.
+                    AlertWindow.cancel(context, current.booking.id)
                     AlertSafetyNet.cancel(context, current.booking.id)
                     // Refetch in the background to reconcile.
                     load(silent = true)

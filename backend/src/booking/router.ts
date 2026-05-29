@@ -4,7 +4,7 @@ import { prisma } from '../config/db.js';
 import { asyncHandler, HttpError } from '../lib/error.js';
 import { requireAuth } from '../auth/middleware.js';
 import { logger } from '../lib/logger.js';
-import { emitBookingStatus } from '../realtime/server.js';
+import { emitBookingStatus, emitVendorBookingChanged } from '../realtime/server.js';
 import { createBooking, listMyBookings } from './service.js';
 import { buildQrString } from './qr.js';
 
@@ -14,6 +14,8 @@ const createBody = z.object({
   vendorId: z.string().min(1),
   serviceId: z.string().min(1),
   slotStart: z.string().min(1), // ISO 8601
+  /** Optional promo code, e.g. "AUTO20". Validated + applied server-side. */
+  promoCode: z.string().min(2).max(20).optional(),
 });
 
 bookingRouter.post(
@@ -21,12 +23,13 @@ bookingRouter.post(
   requireAuth,
   asyncHandler(async (req, res) => {
     if (!req.user) throw new HttpError(401, 'Auth required');
-    const { vendorId, serviceId, slotStart } = createBody.parse(req.body);
+    const { vendorId, serviceId, slotStart, promoCode } = createBody.parse(req.body);
     const booking = await createBooking({
       customerId: req.user.id,
       vendorId,
       serviceId,
       slotStartIso: slotStart,
+      promoCode,
     });
     res.status(201).json(booking);
   }),
@@ -111,6 +114,7 @@ bookingRouter.post(
     });
 
     emitBookingStatus(req.user.id, result.booking.id, 'cancelled');
+    emitVendorBookingChanged(result.booking.vendorId, result.booking.id, 'cancelled');
     logger.info(
       {
         bookingId: result.booking.id,
@@ -142,13 +146,28 @@ bookingRouter.get(
     const booking = await prisma.booking.findUnique({
       where: { id: req.params.id },
       include: {
-        vendor: { select: { brandName: true } },
+        vendor: { select: { brandName: true, logoUrl: true } },
         bay: { select: { name: true } },
+        // Pull the customer's car details so the QR screen can show them
+        // alongside the code — the attendant scans the QR and immediately
+        // sees the plate they're looking for, no extra lookup.
+        customer: {
+          select: {
+            carMake: true,
+            carType: true,
+            carColor: true,
+            carPlate: true,
+          },
+        },
       },
     });
     if (!booking || booking.customerId !== req.user.id) {
       throw new HttpError(404, 'Booking not found', { code: 'booking_not_found' });
     }
+    // booking.customer is non-null here by construction: customerId !== req.user.id
+    // already excluded walk-ins (customerId === null), and the include guarantees
+    // the relation. The `?? null` fallbacks below silence TS rather than reflect a
+    // real runtime branch.
     if (['cancelled', 'completed', 'no_show'].includes(booking.status)) {
       throw new HttpError(409, `Booking is ${booking.status}; check-in not available`, {
         code: 'booking_not_active',
@@ -166,7 +185,17 @@ bookingRouter.get(
       slotStart: booking.slotStart.toISOString(),
       status: String(booking.status),
       vendorName: booking.vendor.brandName,
+      vendorLogoUrl: booking.vendor.logoUrl,
       bayName: booking.bay?.name ?? null,
+      // FTA invoice line surfaced on the QR screen so the customer can read
+      // it back if asked. Null while the booking is still pending payment.
+      invoiceNumber: booking.invoiceNumber,
+      vatAed: booking.vatAed,
+      totalAed: booking.totalAed,
+      carMake: booking.customer?.carMake ?? null,
+      carType: booking.customer?.carType ?? null,
+      carColor: booking.customer?.carColor ?? null,
+      carPlate: booking.customer?.carPlate ?? null,
     });
   }),
 );
@@ -248,7 +277,7 @@ bookingRouter.get(
     if (!review || review.customerId !== req.user.id) {
       return res.status(404).json({ error: 'review_not_found' });
     }
-    res.json({
+    return res.json({
       id: review.id,
       bookingId: review.bookingId,
       rating: review.rating,
