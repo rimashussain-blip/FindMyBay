@@ -23,11 +23,22 @@ class TokenStore(private val context: Context) {
     suspend fun accessToken(): String? =
         context.dataStore.data.map { it[accessKey] }.first()
 
+    suspend fun refreshToken(): String? =
+        context.dataStore.data.map { it[refreshKey] }.first()
+
     suspend fun save(access: String, refresh: String, role: String) {
         context.dataStore.edit {
             it[accessKey] = access
             it[refreshKey] = refresh
             it[roleKey] = role
+        }
+    }
+
+    /** Persist a rotated access + refresh pair after a silent token refresh. */
+    suspend fun updateTokens(access: String, refresh: String) {
+        context.dataStore.edit {
+            it[accessKey] = access
+            it[refreshKey] = refresh
         }
     }
 

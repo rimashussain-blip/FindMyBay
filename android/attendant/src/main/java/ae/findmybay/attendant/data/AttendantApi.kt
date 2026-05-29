@@ -15,6 +15,11 @@ interface AttendantApi {
         @Header("No-Auth") noAuth: String = "1",
     ): LoginResponse
 
+    // Called by the OkHttp Authenticator when an access token 401s. Uses its
+    // own bare client (no auth interceptor / authenticator) to avoid recursion.
+    @POST("auth/refresh")
+    suspend fun refresh(@Body body: RefreshBody): RefreshResponse
+
     @GET("admin/me")
     suspend fun me(): MeResponse
 

@@ -21,6 +21,14 @@ data class LoginUser(
     val fullName: String? = null,
 )
 
+// POST /auth/refresh — swap a still-valid refresh token for a fresh pair.
+// The server rotates the refresh token (single-use), so we persist both.
+@Serializable
+data class RefreshBody(val refreshToken: String)
+
+@Serializable
+data class RefreshResponse(val accessToken: String, val refreshToken: String)
+
 // ─── /admin/me ──────────────────────────────────────────────────────────────
 @Serializable
 data class MeResponse(val vendor: VendorDto, val role: String)
