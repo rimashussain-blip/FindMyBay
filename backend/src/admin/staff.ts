@@ -375,14 +375,37 @@ staffPublicRouter.post(
       });
       throw new HttpError(409, 'Invite has expired', { code: 'invite_expired' });
     }
-    // Optional: enforce that the accepter's email matches the invite's email.
-    // Keep it lenient for now — owner may have invited a personal email but
-    // the user signed up with a work email. They can still accept.
+    // An invite is addressed to a specific email. Require the signed-in user to
+    // actually be that person. Without this, an owner who opens their OWN
+    // invite link (e.g. to test it) overwrites their existing membership and
+    // demotes themselves to the invited role — leaving the vendor with no
+    // owner. Match on email so accepting can only ever add the intended person.
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) throw new HttpError(404, 'User not found');
+    if ((user.email ?? '').toLowerCase() !== invite.email.toLowerCase()) {
+      throw new HttpError(
+        403,
+        `This invite was sent to ${invite.email}. Sign in with that account to accept it.`,
+        { code: 'invite_email_mismatch' },
+      );
+    }
 
     // Already a member? Just bump the role to whatever the invite said.
     const existing = await prisma.vendorMember.findFirst({
       where: { userId: req.user.id, vendorId: invite.vendorId },
     });
+
+    // Belt-and-braces: never let accepting an invite demote the last owner.
+    if (existing && existing.role === 'owner' && invite.role !== 'owner') {
+      const ownerCount = await prisma.vendorMember.count({
+        where: { vendorId: invite.vendorId, role: 'owner', status: 'active' },
+      });
+      if (ownerCount <= 1) {
+        throw new HttpError(409, "Can't accept an invite that would demote the last owner.", {
+          code: 'last_owner',
+        });
+      }
+    }
 
     const memberPromise = existing
       ? prisma.vendorMember.update({
