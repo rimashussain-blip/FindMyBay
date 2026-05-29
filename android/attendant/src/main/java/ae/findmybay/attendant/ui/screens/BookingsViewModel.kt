@@ -7,12 +7,21 @@ import ae.findmybay.attendant.data.BookingRow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class BookingsTab { Today, Upcoming, Completed }
+enum class BookingsTab(val label: String) {
+    Today("Today"),
+    Upcoming("Upcoming"),
+    Done("Done"),
+}
 
 private val ACTIVE = setOf("confirmed", "alert_scheduled", "alerted", "in_progress", "pending_payment")
+
+// Finished bookings — surfaced together under the "Done" tab so cancelled /
+// no-show jobs don't silently vanish (they're still returned by the API).
+private val TERMINAL = setOf("completed", "cancelled", "no_show")
 
 data class BookingsUiState(
     val loading: Boolean = true,
@@ -25,13 +34,13 @@ data class BookingsUiState(
         get() = when (tab) {
             BookingsTab.Today -> all.filter { it.status in ACTIVE && !it.isFuture }
             BookingsTab.Upcoming -> all.filter { it.status in ACTIVE && it.isFuture }
-            BookingsTab.Completed -> all.filter { it.status == "completed" }
+            BookingsTab.Done -> all.filter { it.status in TERMINAL }
         }
 
     fun count(t: BookingsTab): Int = when (t) {
         BookingsTab.Today -> all.count { it.status in ACTIVE && !it.isFuture }
         BookingsTab.Upcoming -> all.count { it.status in ACTIVE && it.isFuture }
-        BookingsTab.Completed -> all.count { it.status == "completed" }
+        BookingsTab.Done -> all.count { it.status in TERMINAL }
     }
 }
 
@@ -39,7 +48,12 @@ class BookingsViewModel(private val repo: AttendantRepository) : ViewModel() {
     private val _state = MutableStateFlow(BookingsUiState())
     val state: StateFlow<BookingsUiState> = _state.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+        viewModelScope.launch {
+            repo.realtimeEvents.debounce(300).collect { load() }
+        }
+    }
 
     fun load() {
         _state.update { it.copy(loading = it.all.isEmpty(), error = null) }

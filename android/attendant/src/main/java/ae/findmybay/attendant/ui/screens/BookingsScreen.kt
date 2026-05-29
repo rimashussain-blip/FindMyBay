@@ -41,6 +41,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import ae.findmybay.attendant.data.BookingRow
 import ae.findmybay.attendant.data.ServiceGraph
 import ae.findmybay.attendant.ui.components.PillKind
+import ae.findmybay.attendant.ui.components.RefreshOnResume
 import ae.findmybay.attendant.ui.components.StatusPill
 import ae.findmybay.attendant.ui.components.TierBadge
 import ae.findmybay.attendant.ui.theme.*
@@ -51,6 +52,7 @@ fun BookingsScreen(onBack: () -> Unit, onOpenBooking: (String) -> Unit) {
         factory = viewModelFactory { initializer { BookingsViewModel(ServiceGraph.repository) } }
     )
     val state by vm.state.collectAsStateWithLifecycle()
+    RefreshOnResume { vm.load() }
 
     Column(Modifier.fillMaxSize().background(FmbCream)) {
         // Header
@@ -73,7 +75,7 @@ fun BookingsScreen(onBack: () -> Unit, onOpenBooking: (String) -> Unit) {
                     Modifier.weight(1f).height(40.dp).clip(RoundedCornerShape(11.dp)).background(if (active) FmbPrimary else Color.Transparent).clickable { vm.selectTab(t) },
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(t.name, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (active) FmbWhite else FmbPrimaryDeep)
+                    Text(t.label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (active) FmbWhite else FmbPrimaryDeep)
                     Spacer(Modifier.width(6.dp))
                     Box(Modifier.clip(RoundedCornerShape(5.dp)).background(if (active) Color(0x38FFFFFF) else FmbWhite).padding(horizontal = 6.dp, vertical = 1.dp)) {
                         Text("${state.count(t)}", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, color = if (active) FmbWhite else FmbPrimaryDeep)

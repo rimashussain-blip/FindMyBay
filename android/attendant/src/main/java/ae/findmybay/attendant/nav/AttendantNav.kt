@@ -1,12 +1,16 @@
 package ae.findmybay.attendant.nav
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import ae.findmybay.attendant.data.SessionManager
 import ae.findmybay.attendant.ui.screens.BayBoardScreen
 import ae.findmybay.attendant.ui.screens.BookingDetailScreen
 import ae.findmybay.attendant.ui.screens.BookingsScreen
@@ -27,6 +31,17 @@ object Routes {
 @Composable
 fun AttendantNav(startDestination: String) {
     val nav = rememberNavController()
+
+    // Involuntary session expiry (refresh token finally rejected): kick back to
+    // login from wherever the user is, clearing the back stack.
+    val expired by SessionManager.expired.collectAsStateWithLifecycle()
+    LaunchedEffect(expired) {
+        if (expired) {
+            nav.toLogin()
+            SessionManager.reset()
+        }
+    }
+
     NavHost(navController = nav, startDestination = startDestination) {
         composable(Routes.LOGIN) {
             LoginScreen(onSignedIn = {
@@ -48,7 +63,7 @@ fun AttendantNav(startDestination: String) {
             BookingsScreen(onBack = { nav.popBackStack() }, onOpenBooking = { id -> nav.navigate(Routes.detail(id)) })
         }
         composable(Routes.SCANNER) {
-            ScannerScreen(onClose = { nav.popBackStack() }, onTypeCode = { nav.popBackStack() })
+            ScannerScreen(onClose = { nav.popBackStack() })
         }
         composable(Routes.WALK_IN) {
             WalkInScreen(onBack = { nav.popBackStack() }, onStart = { nav.popBackStack() })

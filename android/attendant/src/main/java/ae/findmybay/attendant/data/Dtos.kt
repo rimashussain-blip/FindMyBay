@@ -122,6 +122,11 @@ data class WalkInBody(
     val walkInPhone: String? = null,
 )
 
+// POST /admin/checkin — scan the customer's signed QR string.
+@Serializable
+data class CheckinQrBody(val qr: String)
+
+// POST /admin/checkin/code — manual FMB-XXXX short-code fallback.
 @Serializable
 data class CheckinCodeBody(val code: String)
 
@@ -129,4 +134,17 @@ data class CheckinCodeBody(val code: String)
 data class CheckinResponse(
     val ok: Boolean = false,
     val alreadyCheckedIn: Boolean = false,
+    val booking: CheckinBookingDto? = null,
 )
+
+@Serializable
+data class CheckinBookingDto(
+    val id: String,
+    val status: String? = null,
+    val customer: BookingCustomerDto? = null,
+    val service: CheckinServiceDto? = null,
+    val bay: BookingBayDto? = null,
+)
+
+@Serializable
+data class CheckinServiceDto(val name: String, val durationMin: Int = 0)

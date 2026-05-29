@@ -105,8 +105,10 @@ private class TokenAuthenticator(
             val fresh = try {
                 runBlocking { refreshApi.refresh(RefreshBody(refresh)) }
             } catch (e: Exception) {
-                // Refresh token expired/revoked — force a fresh sign-in.
+                // Refresh token expired/revoked — force a fresh sign-in and
+                // signal the nav layer to route back to login.
                 runBlocking { tokenStore.clear() }
+                SessionManager.markExpired()
                 return null
             }
 

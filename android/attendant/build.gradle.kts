@@ -100,4 +100,15 @@ dependencies {
 
     // Token storage
     implementation(libs.androidx.datastore.preferences)
+
+    // QR scanner: CameraX preview/analysis + zxing decode + runtime permission
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation(libs.zxing.core)
+    implementation(libs.accompanist.permissions)
+
+    // Realtime live updates
+    implementation(libs.socketio.client)
 }

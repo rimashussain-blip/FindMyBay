@@ -7,6 +7,7 @@ import ae.findmybay.attendant.data.BayBoardData
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -22,7 +23,13 @@ class BayBoardViewModel(private val repo: AttendantRepository) : ViewModel() {
     private val _state = MutableStateFlow(BayBoardUiState())
     val state: StateFlow<BayBoardUiState> = _state.asStateFlow()
 
-    init { load(initial = true) }
+    init {
+        load(initial = true)
+        // Auto-refresh when the backend signals a bay/booking change.
+        viewModelScope.launch {
+            repo.realtimeEvents.debounce(300).collect { load() }
+        }
+    }
 
     fun load(initial: Boolean = false) {
         _state.update { it.copy(loading = initial && it.data == null, refreshing = !initial, error = null) }

@@ -32,6 +32,14 @@ data class BookingRow(
     val isFuture: Boolean, // slotStart is on a later calendar day than today
 )
 
+/** Outcome of a QR / short-code check-in, shaped for the scanner's result banner. */
+data class CheckinResult(
+    val alreadyCheckedIn: Boolean,
+    val customerName: String,
+    val bayName: String?,
+    val serviceName: String?,
+)
+
 data class BayOption(val id: String, val name: String, val bayType: String, val status: String)
 data class ServiceOption(val id: String, val name: String, val durationMin: Int, val priceAed: Int)
 data class WalkInOptions(val bays: List<BayOption>, val services: List<ServiceOption>)
@@ -58,8 +66,12 @@ data class BayBoardData(
 class AttendantRepository(
     private val tokenStore: TokenStore,
     private val apiProvider: () -> AttendantApi,
+    private val realtime: RealtimeClient,
 ) {
     private val api get() = apiProvider()
+
+    /** Live refresh nudges from Socket.IO; ViewModels collect this to refetch. */
+    val realtimeEvents get() = realtime.events
 
     // Last-loaded bookings, kept so the detail sheet can render a tapped row
     // without a dedicated single-booking endpoint.
@@ -74,7 +86,10 @@ class AttendantRepository(
         tokenStore.save(res.accessToken, res.refreshToken, res.user.role)
     }
 
-    suspend fun signOut() = tokenStore.clear()
+    suspend fun signOut() {
+        realtime.disconnect()
+        tokenStore.clear()
+    }
 
     suspend fun isSignedIn(): Boolean = tokenStore.isSignedIn()
 
@@ -84,6 +99,8 @@ class AttendantRepository(
         val bookings = api.bookingsToday().items
         cachedBookings = bookings.map { it.toRow() }
         tokenStore.saveBrand(me.vendor.brandName)
+        // Now we know the vendor id — open (or keep) the realtime subscription.
+        realtime.connect(me.vendor.id)
 
         val now = OffsetDateTime.now()
 
@@ -159,6 +176,22 @@ class AttendantRepository(
                 walkInName = name?.trim()?.ifBlank { null },
                 walkInPhone = phone?.trim()?.ifBlank { null },
             )
+        )
+    }
+
+    /** Check a customer in by their scanned QR string. */
+    suspend fun checkInByQr(qr: String): CheckinResult = api.checkinByQr(CheckinQrBody(qr)).toResult()
+
+    /** Check a customer in by the typed FMB-XXXX short code. */
+    suspend fun checkInByCode(code: String): CheckinResult = api.checkinByCode(CheckinCodeBody(code.trim())).toResult()
+
+    private fun CheckinResponse.toResult(): CheckinResult {
+        val b = booking
+        return CheckinResult(
+            alreadyCheckedIn = alreadyCheckedIn,
+            customerName = b?.customer?.fullName ?: b?.customer?.phone ?: "Customer",
+            bayName = b?.bay?.name,
+            serviceName = b?.service?.name,
         )
     }
 

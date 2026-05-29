@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -47,6 +48,7 @@ import ae.findmybay.attendant.data.ServiceGraph
 import ae.findmybay.attendant.data.UpNextView
 import ae.findmybay.attendant.ui.components.CountdownRing
 import ae.findmybay.attendant.ui.components.Eyebrow
+import ae.findmybay.attendant.ui.components.RefreshOnResume
 import ae.findmybay.attendant.ui.components.M1Mark
 import ae.findmybay.attendant.ui.components.PillKind
 import ae.findmybay.attendant.ui.components.StatusPill
@@ -67,6 +69,7 @@ fun BayBoardScreen(
     val state by vm.state.collectAsStateWithLifecycle()
 
     LaunchedEffect(state.signedOut) { if (state.signedOut) onSignedOut() }
+    RefreshOnResume { vm.load() }
 
     val data = state.data
 
@@ -76,6 +79,7 @@ fun BayBoardScreen(
                 title = data?.brandName ?: "findMy Bay",
                 sub = data?.let { "${it.vendorStatus} · live" } ?: "Loading…",
                 onSignOut = vm::signOut,
+                onRefresh = { vm.load() },
             )
 
             when {
@@ -229,7 +233,7 @@ private fun UpNextCard(u: UpNextView, onClick: () -> Unit) {
 
 // ─── Shared sticky header ────────────────────────────────────────────────────
 @Composable
-fun StickyHeader(title: String, sub: String, onSignOut: () -> Unit = {}) {
+fun StickyHeader(title: String, sub: String, onSignOut: () -> Unit = {}, onRefresh: (() -> Unit)? = null) {
     Row(
         Modifier.fillMaxWidth().background(FmbCream).padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -241,6 +245,10 @@ fun StickyHeader(title: String, sub: String, onSignOut: () -> Unit = {}) {
                 Box(Modifier.size(6.dp).clip(CircleShape).background(FmbPrimary))
                 Text(sub, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = FmbPrimaryDeep, modifier = Modifier.padding(start = 5.dp))
             }
+        }
+        if (onRefresh != null) {
+            HeaderIconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, "Refresh", tint = FmbInkSoft, modifier = Modifier.size(18.dp)) }
+            Spacer(Modifier.width(8.dp))
         }
         HeaderIconButton(onClick = {}) { Icon(Icons.Outlined.Info, "Info", tint = FmbInkSoft, modifier = Modifier.size(18.dp)) }
         Spacer(Modifier.width(8.dp))

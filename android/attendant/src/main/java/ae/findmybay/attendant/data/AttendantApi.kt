@@ -35,6 +35,9 @@ interface AttendantApi {
     @POST("admin/walk-in")
     suspend fun createWalkIn(@Body body: WalkInBody): BookingDto
 
+    @POST("admin/checkin")
+    suspend fun checkinByQr(@Body body: CheckinQrBody): CheckinResponse
+
     @POST("admin/checkin/code")
     suspend fun checkinByCode(@Body body: CheckinCodeBody): CheckinResponse
 }

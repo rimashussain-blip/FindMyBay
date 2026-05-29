@@ -1,5 +1,6 @@
 package ae.findmybay.attendant.data
 
+import ae.findmybay.attendant.BuildConfig
 import android.content.Context
 
 /**
@@ -12,6 +13,8 @@ object ServiceGraph {
 
     lateinit var tokenStore: TokenStore
         private set
+    lateinit var realtime: RealtimeClient
+        private set
     lateinit var repository: AttendantRepository
         private set
 
@@ -20,11 +23,13 @@ object ServiceGraph {
         synchronized(this) {
             if (initialised) return
             tokenStore = TokenStore(appContext.applicationContext)
+            realtime = RealtimeClient(BuildConfig.API_BASE_URL)
             // The api is rebuilt lazily so the auth interceptor always reads the
             // latest token (e.g. right after login).
             repository = AttendantRepository(
                 tokenStore = tokenStore,
                 apiProvider = { Network.buildApi(tokenStore) },
+                realtime = realtime,
             )
             initialised = true
         }
