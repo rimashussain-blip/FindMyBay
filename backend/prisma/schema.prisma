@@ -45,6 +45,10 @@ model User {
   // (Google/Apple themselves vouch for the email); email/password users
   // start with NULL and get a verification email on registration.
   emailVerifiedAt DateTime? @map("email_verified_at")
+  // True when staff were created with a temporary password (owner-side "add
+  // teammate"). Forces a set-new-password step on their first login, after
+  // which it's cleared.
+  mustChangePassword Boolean @default(false) @map("must_change_password")
   role         Role     @default(customer)
   // Last-known device location, posted by the customer app while a booking
   // window is approaching. Used by the smart-alert worker to compute ETA

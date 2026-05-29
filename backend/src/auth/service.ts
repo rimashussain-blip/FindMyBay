@@ -248,8 +248,31 @@ export async function registerWithEmail(input: {
       fullName: user.fullName,
       role: user.role,
       emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+      mustChangePassword: user.mustChangePassword,
     },
   };
+}
+
+/**
+ * Authenticated password change. Used by the first-login "set a new password"
+ * step (staff created with a temp password) and any future settings screen.
+ * Clears mustChangePassword and revokes other refresh sessions for safety.
+ */
+export async function changePassword(userId: string, newPassword: string): Promise<void> {
+  if (newPassword.length < 8)
+    throw new HttpError(400, 'Password must be at least 8 characters', { code: 'weak_password' });
+  const passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash, mustChangePassword: false },
+  });
+  // Invalidate other outstanding refresh tokens — a changed password should
+  // not leave old sessions alive.
+  await prisma.refreshToken.updateMany({
+    where: { userId, revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+  logger.info({ userId }, 'password changed (authenticated)');
 }
 
 // ─────────────────────────────────────────────────────────────────────────

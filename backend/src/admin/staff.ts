@@ -22,6 +22,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import crypto from 'node:crypto';
+import bcrypt from 'bcrypt';
 import { asyncHandler, HttpError } from '../lib/error.js';
 import { prisma } from '../config/db.js';
 import { requireAuth } from '../auth/middleware.js';
@@ -52,6 +53,42 @@ function buildAcceptUrl(token: string): string {
   // path-only URL so the owner can paste it under whichever host they're on.
   const base = env.VENDOR_ADMIN_URL?.replace(/\/+$/, '') ?? '';
   return `${base}/accept-invite/${token}`;
+}
+
+/**
+ * Welcome email for the temp-password add-staff flow. For brand-new accounts
+ * it includes the temporary password + a note that they'll set their own on
+ * first sign-in; for existing accounts it just tells them they've been added.
+ */
+async function sendStaffWelcomeEmail(
+  to: string,
+  role: string,
+  brandName: string,
+  tempPassword: string | null,
+): Promise<void> {
+  const loginUrl = env.VENDOR_ADMIN_URL?.replace(/\/+$/, '') ?? 'https://admin.findmybay.me';
+  const credsText = tempPassword
+    ? `\nEmail: ${to}\nTemporary password: ${tempPassword}\n\nYou'll be asked to set your own password the first time you sign in.\n`
+    : `\nSign in with your existing Find My Bay account (${to}).\n`;
+  const credsHtml = tempPassword
+    ? `<p style="margin:14px 0;padding:12px 14px;background:#E6F7F4;border-radius:10px">` +
+      `Email: <b>${to}</b><br/>Temporary password: <b>${tempPassword}</b></p>` +
+      `<p style="color:#5C7A75;font-size:13px">You'll set your own password the first time you sign in.</p>`
+    : `<p style="color:#5C7A75">Sign in with your existing Find My Bay account (<b>${to}</b>).</p>`;
+  await sendEmail({
+    to,
+    subject: `You've been added to ${brandName} on Find My Bay`,
+    tag: 'staff-welcome',
+    text: `You've been added to ${brandName} as ${role} on Find My Bay.\n\nSign in: ${loginUrl}${credsText}`,
+    html:
+      `<div style="font-family:system-ui,-apple-system,sans-serif;color:#0B3B36">` +
+      `<h2 style="color:#0F766E">You've been added to ${brandName}</h2>` +
+      `<p>Your role: <b>${role}</b>.</p>` +
+      `<p><a href="${loginUrl}" style="display:inline-block;background:#0F766E;color:#fff;` +
+      `padding:12px 20px;border-radius:10px;text-decoration:none;font-weight:bold">Sign in</a></p>` +
+      credsHtml +
+      `</div>`,
+  });
 }
 
 /**
@@ -148,24 +185,15 @@ staffRouter.post(
     const body = inviteBody.parse(req.body);
     const vendorId = req.vendor!.id;
     const email = body.email.trim().toLowerCase();
+    const role = body.role;
 
-    // Block duplicate invites for the same email + same vendor when one
-    // is already pending.
-    const existing = await prisma.staffInvite.findFirst({
-      where: { vendorId, email, status: 'pending' },
-    });
-    if (existing) {
-      throw new HttpError(409, 'A pending invite already exists for that email', {
-        code: 'invite_already_pending',
-        details: { acceptUrl: buildAcceptUrl(existing.token) },
-      });
-    }
-
-    // Block re-inviting a user who's already an active member of THIS vendor.
-    const userByEmail = await prisma.user.findUnique({ where: { email } });
-    if (userByEmail) {
+    // Direct add: create the account with a temp password (or reuse an
+    // existing one), attach the membership, and email credentials. No more
+    // accept-link / self-registration step.
+    const existingUser = await prisma.user.findUnique({ where: { email } });
+    if (existingUser) {
       const alreadyMember = await prisma.vendorMember.findFirst({
-        where: { userId: userByEmail.id, vendorId },
+        where: { userId: existingUser.id, vendorId },
       });
       if (alreadyMember) {
         throw new HttpError(409, 'That email is already a member of this vendor', {
@@ -174,42 +202,44 @@ staffRouter.post(
       }
     }
 
-    const token = makeInviteToken();
-    const expiresAt = new Date(Date.now() + INVITE_TTL_MS);
-    const invite = await prisma.staffInvite.create({
-      data: {
-        vendorId,
-        email,
-        role: body.role,
-        token,
-        invitedById: req.user!.id,
-        expiresAt,
-      },
+    const globalRole =
+      role === 'owner' ? 'vendor_owner' : role === 'manager' ? 'vendor_manager' : 'attendant';
+
+    let userId: string;
+    let tempPassword: string | null = null;
+    if (existingUser) {
+      // Keep their existing login + password; just grant membership.
+      userId = existingUser.id;
+    } else {
+      tempPassword = 'Fmb' + crypto.randomBytes(5).toString('hex') + '!';
+      const passwordHash = await bcrypt.hash(tempPassword, 10);
+      const created = await prisma.user.create({
+        data: {
+          email,
+          passwordHash,
+          role: globalRole,
+          mustChangePassword: true,
+          emailVerifiedAt: new Date(), // owner vouches for the address
+        },
+      });
+      userId = created.id;
+    }
+
+    await prisma.vendorMember.create({
+      data: { userId, vendorId, role, status: 'active' },
     });
 
-    logger.info(
-      { inviteId: invite.id, vendorId, email, role: body.role },
-      'staff invite created',
-    );
-
-    // Email the invitee the accept link. Best-effort — failures are logged but
-    // don't fail the request (the owner still gets the URL in the response).
     const vendor = await prisma.vendor.findUnique({
       where: { id: vendorId },
       select: { brandName: true },
     });
-    void sendStaffInviteEmail(email, body.role, vendor?.brandName ?? 'the team', buildAcceptUrl(token)).catch(
-      (err) => logger.error({ err, inviteId: invite.id }, 'failed to send staff invite email'),
+    void sendStaffWelcomeEmail(email, role, vendor?.brandName ?? 'the team', tempPassword).catch(
+      (err) => logger.error({ err, email }, 'failed to send staff welcome email'),
     );
 
-    res.status(201).json({
-      id: invite.id,
-      email: invite.email,
-      role: String(invite.role),
-      status: String(invite.status),
-      expiresAt: invite.expiresAt.toISOString(),
-      acceptUrl: buildAcceptUrl(invite.token),
-    });
+    logger.info({ vendorId, email, role, created: !existingUser }, 'staff added directly');
+
+    res.status(201).json({ email, role, created: !existingUser });
   }),
 );
 

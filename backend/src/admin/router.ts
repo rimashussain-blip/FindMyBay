@@ -29,14 +29,20 @@ adminRouter.get(
   requireAuth,
   requireVendor(),
   asyncHandler(async (req, res) => {
-    const vendor = await prisma.vendor.findUniqueOrThrow({
-      where: { id: req.vendor!.id },
-      include: {
-        bays: { where: { deletedAt: null }, orderBy: { name: 'asc' } },
-        services: { where: { deletedAt: null }, orderBy: { priceAed: 'asc' } },
-      },
-    });
+    const [vendor, me] = await Promise.all([
+      prisma.vendor.findUniqueOrThrow({
+        where: { id: req.vendor!.id },
+        include: {
+          bays: { where: { deletedAt: null }, orderBy: { name: 'asc' } },
+          services: { where: { deletedAt: null }, orderBy: { priceAed: 'asc' } },
+        },
+      }),
+      prisma.user.findUnique({ where: { id: req.user!.id }, select: { mustChangePassword: true } }),
+    ]);
     res.json({
+      // Forces the first-login set-new-password step for staff created with a
+      // temporary password. Clients gate their main screen on this.
+      mustChangePassword: me?.mustChangePassword ?? false,
       vendor: {
         id: vendor.id,
         brandName: vendor.brandName,

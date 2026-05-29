@@ -9,6 +9,7 @@ import { asyncHandler, HttpError } from '../lib/error.js';
 import { logger } from '../lib/logger.js';
 import { requireAuth } from './middleware.js';
 import {
+  changePassword,
   completePasswordReset,
   consumeEmailVerification,
   loginWithEmail,
@@ -119,6 +120,20 @@ authRouter.post(
       ?? null;
     const result = await completePasswordReset({ token, newPassword, ip });
     res.json(result);
+  }),
+);
+
+// Authenticated password change — used by the first-login "set a new password"
+// step (staff created with a temp password) and any future settings screen.
+const changeBody = z.object({ newPassword: z.string().min(8).max(128) });
+authRouter.post(
+  '/password/change',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    if (!req.user) throw new HttpError(401, 'Auth required');
+    const { newPassword } = changeBody.parse(req.body);
+    await changePassword(req.user.id, newPassword);
+    res.json({ ok: true });
   }),
 );
 
