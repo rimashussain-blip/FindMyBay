@@ -38,6 +38,13 @@ async function main() {
       data: { email: EMAIL, passwordHash, fullName: NAME, role: globalRole, emailVerifiedAt: new Date() },
     });
     console.log(`Created user ${EMAIL}`);
+  } else if (PASSWORD) {
+    // Existing account + an explicit password => reset it so the owner can
+    // hand the teammate working credentials.
+    const passwordHash = await bcrypt.hash(PASSWORD, 10);
+    await prisma.user.update({ where: { id: user.id }, data: { passwordHash } });
+    tempShown = PASSWORD;
+    console.log(`User ${EMAIL} exists — password reset`);
   } else {
     console.log(`User ${EMAIL} already exists — reusing (password unchanged)`);
   }
